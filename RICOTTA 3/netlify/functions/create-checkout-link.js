@@ -1,201 +1,199 @@
-// netlify function: create-checkout-link
+// netlify/functions/create-checkout-link.js
+const https = require("https");
+const crypto = require("crypto");
 
-const https = require('https');
+const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
 
-function normalizePhone(raw) {
-  if (!raw) return null;
-  let p = String(raw).trim();
-  if (!p) return null;
+function callSquare(path, method, bodyObj) {
+  return new Promise((resolve, reject) => {
+    const postData = bodyObj ? JSON.stringify(bodyObj) : null;
 
-  // אם המשתמש כבר כתב בפורמט בינלאומי
-  if (p.startsWith('+')) {
-    const digits = p.replace(/\D/g, '');
-    if (digits.length >= 8) return p;
-  }
+    const options = {
+      hostname: "connect.squareup.com",
+      path,
+      method,
+      headers: {
+        "Square-Version": "2025-01-15",
+        Authorization: `Bearer ${SQUARE_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    };
 
-  const digits = p.replace(/\D/g, '');
+    if (postData) {
+      options.headers["Content-Length"] = Buffer.byteLength(postData);
+    }
 
-  // 10 ספרות -> נניח טלפון אמריקאי רגיל
-  if (digits.length === 10) {
-    return '+1' + digits;
-  }
+    const req = https.request(options, (res) => {
+      let data = "";
 
-  // 11 ספרות ומתחיל ב-1
-  if (digits.length === 11 && digits[0] === '1') {
-    return '+' + digits;
-  }
+      res.on("data", (chunk) => {
+        data += chunk;
+      });
 
-  // כל דבר אחר – לא שולחים בכלל טלפון לסקוור
-  return null;
+      res.on("end", () => {
+        let json;
+        try {
+          json = data ? JSON.parse(data) : {};
+        } catch (e) {
+          json = { raw: data, parseError: e.message };
+        }
+
+        resolve({
+          statusCode: res.statusCode,
+          body: json,
+        });
+      });
+    });
+
+    req.on("error", (err) => {
+      reject(err);
+    });
+
+    if (postData) req.write(postData);
+    req.end();
+  });
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
+  // רק POST
+  if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
-      body: JSON.stringify({ error: 'Method Not Allowed' })
+      body: JSON.stringify({ error: "Method Not Allowed" }),
     };
   }
 
-  const accessToken = process.env.SQUARE_ACCESS_TOKEN;
-  const locationId = process.env.SQUARE_LOCATION_ID;
-
-  if (!accessToken || !locationId) {
+  if (!SQUARE_ACCESS_TOKEN) {
+    console.error("Missing SQUARE_ACCESS_TOKEN env var");
     return {
       statusCode: 500,
       body: JSON.stringify({
-        error: 'Server misconfiguration',
-        message: 'Missing SQUARE_ACCESS_TOKEN or SQUARE_LOCATION_ID'
-      })
+        error: "Server configuration error",
+        detail: "Missing Square access token",
+      }),
     };
   }
 
+  try:
   try {
-    const body = JSON.parse(event.body || '{}');
-
     const {
       cartItems,
-      currency,
+      currency = "USD",
       redirectUrlBase,
       pickupDate,
       pickupTime,
       customerName,
       customerPhone,
       customerEmail,
-      idempotencyKey
-    } = body;
+    } = JSON.parse(event.body || "{}");
 
-    if (!Array.isArray(cartItems) || !cartItems.length) {
+    if (
+      !cartItems ||
+      !Array.isArray(cartItems) ||
+      cartItems.length === 0 ||
+      !redirectUrlBase
+    ) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Cart is empty' })
+        body: JSON.stringify({
+          error: "Missing required fields",
+        }),
       };
     }
 
-    const totalCents = cartItems.reduce(
-      (sum, item) => sum + (item.unitAmountCents || 0) * (item.quantity || 0),
-      0
+    // 1) שולפים מ-Square את ה-location_id התקין
+    const locationsRes = await callSquare("/v2/locations", "GET");
+    if (locationsRes.statusCode >= 400 || locationsRes.body.errors) {
+      console.error("Square locations error:", locationsRes.body);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          error: "Failed to fetch Square locations",
+          details: locationsRes.body,
+        }),
+      };
+    }
+
+    const locations = locationsRes.body.locations || [];
+    if (!locations.length) {
+      console.error("No locations found on Square account");
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          error: "No locations configured in Square",
+        }),
+      };
+    }
+
+    // בוחרים לוקיישן ראשון עם יכולת חיוב
+    const selectedLocation =
+      locations.find((loc) =>
+        (loc.capabilities || []).includes("CREDIT_CARD_PROCESSING")
+      ) || locations[0];
+
+    const locationId = selectedLocation.id;
+
+    // 2) בונים הזמנה
+    const lineItems = cartItems.map((item) => ({
+      name: item.name,
+      quantity: String(item.quantity || 1),
+      base_price_money: {
+        amount: item.unitAmountCents,
+        currency,
+      },
+    }));
+
+    const order = {
+      location_id: locationId,
+      line_items: lineItems,
+      note: [
+        pickupDate && pickupTime
+          ? `Pickup: ${pickupDate} ${pickupTime}`
+          : null,
+        customerName ? `Customer: ${customerName}` : null,
+        customerPhone ? `Phone: ${customerPhone}` : null,
+        customerEmail ? `Email: ${customerEmail}` : null,
+      ]
+        .filter(Boolean)
+        .join(" | "),
+    };
+
+    // 3) יוצרים קישור תשלום
+    const checkoutBody = {
+      idempotency_key: crypto.randomUUID(),
+      order,
+      checkout_options: {
+        redirect_url: `${redirectUrlBase.replace(/\/$/, "")}/success.html`,
+      },
+    };
+
+    const checkoutRes = await callSquare(
+      "/v2/online-checkout/payment-links",
+      "POST",
+      checkoutBody
     );
 
-    if (!totalCents || !currency) {
+    if (checkoutRes.statusCode >= 400 || checkoutRes.body.errors) {
+      console.error("Square checkout error:", checkoutRes.body);
       return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Invalid amount or currency' })
+        statusCode: checkoutRes.statusCode || 400,
+        body: JSON.stringify(checkoutRes.body),
       };
     }
 
-    const normalizedPhone = normalizePhone(customerPhone);
-
-    const paymentLinkBody = {
-      idempotency_key:
-        idempotencyKey ||
-        `ricotta-checkout-${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2)}`,
-      quick_pay: {
-        name: 'RICOTTA Donuts Preorder',
-        price_money: {
-          amount: totalCents,
-          currency: currency
-        },
-        location_id: locationId,
-        note: `Pickup: ${pickupDate || '-'} ${pickupTime || '-'} | Name: ${
-          customerName || '-'
-        } | Phone: ${customerPhone || '-'} | Email: ${customerEmail || '-'}`
-      },
-      checkout_options: {
-        redirect_url: `${(redirectUrlBase || '').replace(
-          /\/$/,
-          ''
-        )}/success.html`,
-        ask_for_shipping_address: false,
-        allow_tipping: false,
-        merchant_support_email: process.env.SQUARE_SUPPORT_EMAIL || undefined
-      },
-      pre_populated_data: {
-        buyer_email: customerEmail || undefined,
-        buyer_phone_number: normalizedPhone || undefined
-      },
-      metadata: {
-        cart_json: JSON.stringify(cartItems),
-        pickup_date: pickupDate || '',
-        pickup_time: pickupTime || '',
-        customer_name: customerName || '',
-        customer_phone: customerPhone || '',
-        customer_email: customerEmail || ''
-      }
+    // מחזירים ל-frontend את ה-URL של סקוור
+    return {
+      statusCode: 200,
+      body: JSON.stringify(checkoutRes.body),
     };
-
-    const postData = JSON.stringify(paymentLinkBody);
-
-    const options = {
-      hostname: 'connect.squareup.com',
-      path: '/v2/checkout/payment-links',
-      method: 'POST',
-      headers: {
-        'Square-Version': '2024-09-18',
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData)
-      }
-    };
-
-    return await new Promise((resolve) => {
-      const req = https.request(options, (res) => {
-        let data = '';
-
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-
-        res.on('end', () => {
-          let parsed;
-          try {
-            parsed = JSON.parse(data);
-          } catch (e) {
-            parsed = { raw: data };
-          }
-
-          if (res.statusCode < 200 || res.statusCode >= 300) {
-            return resolve({
-              statusCode: res.statusCode || 500,
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(parsed)
-            });
-          }
-
-          return resolve({
-            statusCode: 200,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(parsed)
-          });
-        });
-      });
-
-      req.on('error', (error) => {
-        console.error('Square checkout link error:', error);
-        resolve({
-          statusCode: 500,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            error: 'Checkout link creation failed',
-            message: error.message
-          })
-        });
-      });
-
-      req.write(postData);
-      req.end();
-    });
   } catch (err) {
-    console.error('Handler error:', err);
+    console.error("Handler error:", err);
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        error: 'Internal server error',
-        message: err.message
-      })
+        error: "Internal server error",
+        message: err.message,
+      }),
     };
   }
 };
