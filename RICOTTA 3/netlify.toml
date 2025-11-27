@@ -1,6 +1,6 @@
 [build]
-  publish = "RICOTTA 3"
+  publish = "."
   command = ""
 
 [functions]
-  directory = "RICOTTA 3/netlify/functions"
+  directory = "netlify/functions"
