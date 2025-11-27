@@ -4,6 +4,7 @@ const crypto = require("crypto");
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
 
+// קריאה כללית ל־Square
 function callSquare(path, method, bodyObj) {
   return new Promise((resolve, reject) => {
     const postData = bodyObj ? JSON.stringify(bodyObj) : null;
@@ -49,13 +50,15 @@ function callSquare(path, method, bodyObj) {
       reject(err);
     });
 
-    if (postData) req.write(postData);
+    if (postData) {
+      req.write(postData);
+    }
     req.end();
   });
 }
 
 exports.handler = async (event) => {
-  // רק POST
+  // מאפשרים רק POST
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
@@ -74,7 +77,6 @@ exports.handler = async (event) => {
     };
   }
 
-  try:
   try {
     const {
       cartItems,
@@ -87,6 +89,7 @@ exports.handler = async (event) => {
       customerEmail,
     } = JSON.parse(event.body || "{}");
 
+    // ולידציה בסיסית
     if (
       !cartItems ||
       !Array.isArray(cartItems) ||
@@ -101,7 +104,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // 1) שולפים מ-Square את ה-location_id התקין
+    // 1) שולפים את רשימת ה-locations מהחשבון שלך ב-Square
     const locationsRes = await callSquare("/v2/locations", "GET");
     if (locationsRes.statusCode >= 400 || locationsRes.body.errors) {
       console.error("Square locations error:", locationsRes.body);
@@ -125,7 +128,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // בוחרים לוקיישן ראשון עם יכולת חיוב
+    // בוחרים לוקיישן שיכול לעבד כרטיסי אשראי
     const selectedLocation =
       locations.find((loc) =>
         (loc.capabilities || []).includes("CREDIT_CARD_PROCESSING")
@@ -133,7 +136,7 @@ exports.handler = async (event) => {
 
     const locationId = selectedLocation.id;
 
-    // 2) בונים הזמנה
+    // 2) בונים את ה-Order לפי העגלה
     const lineItems = cartItems.map((item) => ({
       name: item.name,
       quantity: String(item.quantity || 1),
@@ -158,9 +161,14 @@ exports.handler = async (event) => {
         .join(" | "),
     };
 
-    // 3) יוצרים קישור תשלום
+    // idempotency key בטוח (גם אם randomUUID לא קיים)
+    const idempotencyKey = crypto.randomUUID
+      ? crypto.randomUUID()
+      : crypto.randomBytes(16).toString("hex");
+
+    // 3) יוצרים Payment Link
     const checkoutBody = {
-      idempotency_key: crypto.randomUUID(),
+      idempotency_key: idempotencyKey,
       order,
       checkout_options: {
         redirect_url: `${redirectUrlBase.replace(/\/$/, "")}/success.html`,
@@ -181,7 +189,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // מחזירים ל-frontend את ה-URL של סקוור
+    // מחזירים ל-frontend את האובייקט כולו, ובתוכו payment_link.url
     return {
       statusCode: 200,
       body: JSON.stringify(checkoutRes.body),
