@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
@@ -87,11 +88,24 @@
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-    /* --- שינוי קטן לבאנר במובייל --- */
+    /* hero banner mobile crop */
     @media (max-width: 768px) {
       .hero-img {
         object-position: 70% center;
       }
+    }
+
+    /* cart modal */
+    #cart-modal {
+      transition: opacity 0.3s ease-in-out;
+    }
+    #cart-modal.hidden {
+      pointer-events: none;
+      opacity: 0;
+    }
+    #cart-modal:not(.hidden) {
+      pointer-events: auto;
+      opacity: 1;
     }
   </style>
 </head>
@@ -107,6 +121,7 @@
           <span class="font-serif text-[10px] text-chocolate/40 tracking-[0.4em] uppercase mt-1">Boutique Donuts</span>
         </div>
 
+        <!-- desktop nav + cart -->
         <div class="hidden md:flex items-center space-x-12">
           <a href="#menu" class="text-sm uppercase tracking-[0.15em] text-chocolate/60 hover:text-chocolate transition-colors">The Collection</a>
           <a href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253" target="_blank" class="text-chocolate/60 hover:text-chocolate transition-colors">
@@ -115,19 +130,55 @@
           <button onclick="scrollToMenu()" class="border border-chocolate/20 px-8 py-3 text-xs uppercase tracking-[0.25em] hover:bg-chocolate hover:text-white transition-all duration-500">
             Order Now
           </button>
+          <div class="relative cursor-pointer" onclick="toggleCart()">
+            <i class="fa-solid fa-bag-shopping text-xl text-chocolate"></i>
+            <span id="desktop-cart-count" class="absolute -top-2 -right-2 bg-gold text-white text-[10px] h-4 w-4 flex items-center justify-center rounded-full hidden">0</span>
+          </div>
         </div>
 
+        <!-- mobile nav + cart -->
         <div class="md:hidden p-2 cursor-pointer flex items-center gap-4">
           <a href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253" target="_blank" class="text-chocolate/60 hover:text-chocolate">
             <i class="fa-brands fa-instagram text-xl"></i>
           </a>
-          <div onclick="scrollToMenu()">
+          <div class="relative" onclick="toggleCart()">
             <i class="fa-solid fa-bag-shopping text-xl text-chocolate"></i>
+            <span id="mobile-cart-count" class="absolute -top-2 -right-2 bg-gold text-white text-[10px] h-4 w-4 flex items-center justify-center rounded-full hidden">0</span>
           </div>
         </div>
       </div>
     </div>
   </nav>
+
+  <!-- CART MODAL -->
+  <div id="cart-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="toggleCart()"></div>
+
+    <div class="absolute top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl flex flex-col">
+      <div class="p-6 border-b border-chocolate/10 flex justify-between items-center bg-[#F9F8F6]">
+        <h3 class="font-display text-2xl text-chocolate tracking-wide">Your Cart</h3>
+        <button onclick="toggleCart()" class="text-chocolate/50 hover:text-chocolate text-xl">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-6" id="modal-cart-items">
+        <div class="text-center py-20 opacity-40 font-serif italic">
+          Your cart is currently empty.
+        </div>
+      </div>
+
+      <div class="p-6 border-t border-chocolate/10 bg-[#F9F8F6]">
+        <div class="flex justify-between items-end mb-6">
+          <span class="font-serif text-lg text-chocolate/70">Total</span>
+          <span id="modal-total-price" class="font-display text-3xl text-chocolate">$0.00</span>
+        </div>
+        <button onclick="proceedToCheckout()" class="w-full bg-chocolate text-cream py-4 text-xs uppercase tracking-[0.2em] hover:bg-gold transition-all shadow-lg">
+          Proceed to Checkout
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Hero -->
   <section class="relative h-[75vh] md:h-[90vh] min-h-[500px] flex items-center justify-center overflow-hidden bg-cream">
@@ -245,7 +296,7 @@
               </div>
             </div>
 
-            <!-- Card container (ריק, רק לעיצוב אם תרצה בהמשך) -->
+            <!-- Card container (empty, only visual box if needed later) -->
             <div id="card-container" class="mb-6 p-4 bg-white/5 border border-white/10 rounded"></div>
 
             <!-- Pay Button -->
@@ -403,27 +454,46 @@
           qty: 0
         };
       }
+
       cart[id].qty += delta;
       if (cart[id].qty <= 0) {
         delete cart[id];
-        cart[id] = null;
       }
 
       const qtySpan = document.getElementById(`qty-${id}`);
       if (qtySpan) {
-        qtySpan.textContent = cart[id] && cart[id].qty > 0 ? cart[id].qty : 0;
+        qtySpan.textContent = cart[id] ? cart[id].qty : 0;
       }
 
       renderCart();
+
+      const modal = document.getElementById('cart-modal');
+      if (modal && !modal.classList.contains('hidden')) {
+        renderModalCart();
+      }
     }
 
-    /* ---- renderCart חדש – עיצוב כמו בתמונה ---- */
     function renderCart() {
       const container = document.getElementById("cart-items");
       const totalEl = document.getElementById("total-price");
       const btnPay = document.getElementById("btn-pay");
+      const desktopBadge = document.getElementById('desktop-cart-count');
+      const mobileBadge = document.getElementById('mobile-cart-count');
 
-      const items = Object.values(cart || {}).filter(Boolean);
+      const items = Object.values(cart || {});
+      const totalQty = items.reduce((sum, it) => sum + it.qty, 0);
+
+      if (desktopBadge && mobileBadge) {
+        if (totalQty > 0) {
+          desktopBadge.textContent = totalQty;
+          mobileBadge.textContent = totalQty;
+          desktopBadge.classList.remove('hidden');
+          mobileBadge.classList.remove('hidden');
+        } else {
+          desktopBadge.classList.add('hidden');
+          mobileBadge.classList.add('hidden');
+        }
+      }
 
       if (!items.length) {
         container.innerHTML = `
@@ -440,32 +510,93 @@
 
       container.innerHTML = `
         <div class="space-y-4 pt-2">
-          ${items
-            .map((item) => {
-              const line = item.price * item.qty;
-              total += line;
-              return `
-                <div class="flex items-center justify-between bg-white/5 border border-white/10 rounded-full px-4 py-3 md:px-6 md:py-4">
-                  <div class="flex items-center gap-3 md:gap-4">
-                    <div class="w-8 h-8 md:w-9 md:h-9 rounded-full bg-gold/25 flex items-center justify-center text-[11px] md:text-xs font-display text-cream tracking-widest">
-                      ${item.qty}
-                    </div>
-                    <span class="font-display text-sm md:text-base text-cream">
-                      ${item.name}
-                    </span>
+          ${items.map((item) => {
+            const line = item.price * item.qty;
+            total += line;
+            return `
+              <div class="flex items-center justify-between bg-white/5 border border-white/10 rounded-full px-4 py-3 md:px-6 md:py-4">
+                <div class="flex items-center gap-3 md:gap-4">
+                  <div class="w-8 h-8 md:w-9 md:h-9 rounded-full bg-gold/25 flex items-center justify-center text-[11px] md:text-xs font-display text-cream tracking-widest">
+                    ${item.qty}
                   </div>
-                  <div class="font-display text-sm md:text-base text-gold">
-                    $${line.toFixed(2)}
-                  </div>
+                  <span class="font-display text-sm md:text-base text-cream">
+                    ${item.name}
+                  </span>
                 </div>
-              `;
-            })
-            .join("")}
+                <div class="font-display text-sm md:text-base text-gold">
+                  $${line.toFixed(2)}
+                </div>
+              </div>
+            `;
+          }).join("")}
         </div>
       `;
 
       totalEl.textContent = `$${total.toFixed(2)}`;
       btnPay.disabled = false;
+    }
+
+    // cart modal helpers
+    function toggleCart() {
+      const modal = document.getElementById('cart-modal');
+      if (!modal) return;
+      modal.classList.toggle('hidden');
+      if (!modal.classList.contains('hidden')) {
+        renderModalCart();
+      }
+    }
+
+    function proceedToCheckout() {
+      toggleCart();
+      const orderSection = document.getElementById('order');
+      if (orderSection) {
+        orderSection.scrollIntoView({ behavior: 'smooth' });
+      }
+      setTimeout(() => {
+        const nameInput = document.querySelector('input[name="name"]');
+        if (nameInput) nameInput.focus();
+      }, 600);
+    }
+
+    function renderModalCart() {
+      const container = document.getElementById('modal-cart-items');
+      const totalEl = document.getElementById('modal-total-price');
+      if (!container || !totalEl) return;
+
+      const items = Object.values(cart || {});
+      if (!items.length) {
+        container.innerHTML = `
+          <div class="text-center py-20 opacity-40 font-serif italic">
+            Your cart is currently empty.
+          </div>`;
+        totalEl.textContent = "$0.00";
+        return;
+      }
+
+      let total = 0;
+      container.innerHTML = items.map(item => {
+        total += item.price * item.qty;
+        return `
+          <div class="flex justify-between items-center border-b border-chocolate/5 py-3 last:border-0">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
+                <img src="${findItemById(item.id).img}" class="w-full h-full object-cover">
+              </div>
+              <div>
+                <p class="font-serif text-chocolate text-lg leading-none">${item.name}</p>
+                <p class="text-xs text-chocolate/50 mt-1">$${item.price} each</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <button onclick="updateCart(${item.id}, -1)" class="w-6 h-6 rounded-full border border-chocolate/20 text-chocolate flex items-center justify-center hover:bg-chocolate hover:text-white transition-colors text-xs">-</button>
+              <span class="font-display w-4 text-center">${item.qty}</span>
+              <button onclick="updateCart(${item.id}, 1)" class="w-6 h-6 rounded-full border border-chocolate/20 text-chocolate flex items-center justify-center hover:bg-chocolate hover:text-white transition-colors text-xs">+</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      totalEl.textContent = "$" + total.toFixed(2);
     }
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -478,7 +609,7 @@
       }
     });
 
-    // ===== processPayment – עובד עם Netlify Function =====
+    // ===== processPayment – Netlify checkout-link =====
     async function processPayment() {
       const btn = document.getElementById("btn-pay");
       const errorEl = document.getElementById("error-msg");
@@ -500,7 +631,6 @@
         const formData = new FormData(form);
 
         const cartItems = Object.values(cart)
-          .filter(Boolean)
           .map((item) => ({
             name: item.name,
             quantity: item.qty,
@@ -558,3 +688,4 @@
 
 </body>
 </html>
+```
