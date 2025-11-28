@@ -87,9 +87,13 @@
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-    @media (max-width: 768px) {
-      .hero-img { object-position: center; }
-    }
+ @media (max-width: 768px) {
+  .hero-img {
+    /* מזיז את התמונה קצת ימינה כדי שהדונאט והטקסט יישבו יפה במובייל */
+    object-position: 70% center;
+  }
+}
+
   </style>
 </head>
 
@@ -414,12 +418,58 @@
       renderCart();
     }
 
-    function renderCart() {
-      const container = document.getElementById("cart-items");
-      const totalEl = document.getElementById("total-price");
-      const btnPay = document.getElementById("btn-pay");
+   function renderCart() {
+  const container = document.getElementById("cart-items");
+  const totalEl = document.getElementById("total-price");
+  const btnPay = document.getElementById("btn-pay");
 
-      const items = Object.values(cart || {}).filter(Boolean);
+  const items = Object.values(cart || {}).filter(Boolean);
+
+  // אם אין פריטים – הודעה ריקה
+  if (!items.length) {
+    container.innerHTML = `
+      <div class="text-center py-12 opacity-20 font-serif text-lg italic">
+        Your box is empty.
+      </div>
+    `;
+    totalEl.textContent = "$0.00";
+    btnPay.disabled = true;
+    return;
+  }
+
+  // בניית שורות העגלה – קפסולות יפות כמו בתמונה
+  let total = 0;
+
+  container.innerHTML = `
+    <div class="space-y-4 pt-2">
+      ${items
+        .map((item) => {
+          const line = item.price * item.qty;
+          total += line;
+          return `
+            <div class="flex items-center justify-between bg-white/5 border border-white/10 rounded-full px-4 py-3 md:px-6 md:py-4">
+              <div class="flex items-center gap-3 md:gap-4">
+                <div class="w-8 h-8 md:w-9 md:h-9 rounded-full bg-gold/25 flex items-center justify-center text-[11px] md:text-xs font-display text-cream tracking-widest">
+                  ${item.qty}
+                </div>
+                <span class="font-display text-sm md:text-base text-cream">
+                  ${item.name}
+                </span>
+              </div>
+              <div class="font-display text-sm md:text-base text-gold">
+                $${line.toFixed(2)}
+              </div>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+
+  totalEl.textContent = `$${total.toFixed(2)}`;
+  btnPay.disabled = false;
+}
+
 
       if (!items.length) {
         container.innerHTML = `<div class="text-center py-12 opacity-20 font-serif text-lg italic">Your box is empty.</div>`;
@@ -538,3 +588,4 @@
 
 </body>
 </html>
+
