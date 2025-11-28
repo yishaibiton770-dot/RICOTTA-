@@ -15,16 +15,16 @@
     tailwind.config = {
       theme: {
         extend: {
-          colors: {
-            cream: '#F9F8F6',
-            chocolate: '#2A221E',
-            gold: '#BFA67A',
+          colors: { 
+            cream: '#F9F8F6', 
+            chocolate: '#2A221E', 
+            gold: '#BFA67A', 
             'gold-dark': '#C0B293',
             'input-bg': '#F4F2EE'
           },
-          fontFamily: {
-            serif: ['"Cormorant Garamond"', 'serif'],
-            display: ['"Playfair Display"', 'serif']
+          fontFamily: { 
+            serif: ['"Cormorant Garamond"', 'serif'], 
+            display: ['"Playfair Display"', 'serif'] 
           },
           letterSpacing: {
             'widest-xl': '0.25em',
@@ -69,20 +69,20 @@
       from { opacity: 0; transform: translateY(30px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    .animate-fade-up {
+    .animate-fade-up { 
       opacity: 0;
-      animation: fadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation: fadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
     }
     .delay-100 { animation-delay: 0.2s; }
     .delay-200 { animation-delay: 0.4s; }
     .delay-300 { animation-delay: 0.6s; }
 
     .loader {
-      border: 2px solid #f3f3f3;
-      border-top: 2px solid #2A221E;
-      border-radius: 50%;
-      width: 20px;
-      height: 20px;
+      border: 2px solid #f3f3f3; 
+      border-top: 2px solid #2A221E; 
+      border-radius: 50%; 
+      width: 20px; 
+      height: 20px; 
       animation: spin 1s linear infinite;
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -92,6 +92,19 @@
       .hero-img {
         object-position: 70% center;
       }
+    }
+
+    /* Cart Modal Styles */
+    #cart-modal {
+      transition: opacity 0.3s ease-in-out;
+    }
+    #cart-modal.hidden {
+      pointer-events: none;
+      opacity: 0;
+    }
+    #cart-modal:not(.hidden) {
+      pointer-events: auto;
+      opacity: 1;
     }
   </style>
 </head>
@@ -107,6 +120,7 @@
           <span class="font-serif text-[10px] text-chocolate/40 tracking-[0.4em] uppercase mt-1">Boutique Donuts</span>
         </div>
 
+        <!-- Desktop Nav -->
         <div class="hidden md:flex items-center space-x-12">
           <a href="#menu" class="text-sm uppercase tracking-[0.15em] text-chocolate/60 hover:text-chocolate transition-colors">The Collection</a>
           <a href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253" target="_blank" class="text-chocolate/60 hover:text-chocolate transition-colors">
@@ -115,25 +129,60 @@
           <button onclick="scrollToMenu()" class="border border-chocolate/20 px-8 py-3 text-xs uppercase tracking-[0.25em] hover:bg-chocolate hover:text-white transition-all duration-500">
             Order Now
           </button>
+          <!-- Desktop Cart Icon -->
+          <div class="relative cursor-pointer" onclick="toggleCart()">
+            <i class="fa-solid fa-bag-shopping text-xl text-chocolate"></i>
+            <span id="desktop-cart-count" class="absolute -top-2 -right-2 bg-gold text-white text-[10px] h-4 w-4 flex items-center justify-center rounded-full hidden">0</span>
+          </div>
         </div>
 
+        <!-- Mobile Nav -->
         <div class="md:hidden p-2 cursor-pointer flex items-center gap-4">
           <a href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253" target="_blank" class="text-chocolate/60 hover:text-chocolate">
             <i class="fa-brands fa-instagram text-xl"></i>
           </a>
-          <div onclick="scrollToMenu()">
+          <!-- Mobile Cart Icon -->
+          <div class="relative" onclick="toggleCart()">
             <i class="fa-solid fa-bag-shopping text-xl text-chocolate"></i>
+            <span id="mobile-cart-count" class="absolute -top-2 -right-2 bg-gold text-white text-[10px] h-4 w-4 flex items-center justify-center rounded-full hidden">0</span>
           </div>
         </div>
       </div>
     </div>
   </nav>
 
+  <!-- CART MODAL -->
+  <div id="cart-modal" class="fixed inset-0 z-[100] hidden">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="toggleCart()"></div>
+    <!-- Panel -->
+    <div class="absolute top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl flex flex-col">
+      <div class="p-6 border-b border-chocolate/10 flex justify-between items-center bg-[#F9F8F6]">
+        <h3 class="font-display text-2xl text-chocolate tracking-wide">Your Cart</h3>
+        <button onclick="toggleCart()" class="text-chocolate/50 hover:text-chocolate text-xl">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div id="modal-cart-items" class="flex-1 overflow-y-auto p-6">
+        <div class="text-center py-20 opacity-40 font-serif italic">Your cart is currently empty.</div>
+      </div>
+      <div class="p-6 border-t border-chocolate/10 bg-[#F9F8F6]">
+        <div class="flex justify-between items-end mb-6">
+          <span class="font-serif text-lg text-chocolate/70">Total (incl. tax)</span>
+          <span id="modal-total-price" class="font-display text-3xl text-chocolate">$0.00</span>
+        </div>
+        <button onclick="proceedToCheckout()" class="w-full bg-chocolate text-cream py-4 text-xs uppercase tracking-[0.2em] hover:bg-gold transition-all shadow-lg">
+          Proceed to Checkout
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Hero -->
   <section class="relative h-[75vh] md:h-[90vh] min-h-[500px] flex items-center justify-center overflow-hidden bg-cream">
     <div class="absolute inset-0 z-0">
-      <img src="https://i.postimg.cc/FR4RTRyW/21d15421-7223-4efe-9e38-6ea5a941ac0b-20251125-135133-0000.png"
-           alt="Ricotta Donuts Banner"
+      <img src="https://i.postimg.cc/FR4RTRyW/21d15421-7223-4efe-9e38-6ea5a941ac0b-20251125-135133-0000.png" 
+           alt="Ricotta Donuts Banner" 
            class="w-full h-full object-cover hero-img opacity-100">
       <div class="absolute inset-0 bg-white/10"></div>
     </div>
@@ -169,7 +218,7 @@
   <section id="order" class="bg-[#F4F2EE] py-20 md:py-32 border-t border-chocolate/5">
     <div class="max-w-7xl mx-auto px-6 md:px-12">
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 md:gap-16">
-
+        
         <!-- Form -->
         <div class="lg:col-span-7 bg-white p-8 md:p-16 luxury-shadow">
           <h3 class="font-display text-3xl md:text-4xl text-chocolate mb-10 md:mb-12">Your Details</h3>
@@ -239,7 +288,6 @@
 
             <!-- Totals -->
             <div class="border-t border-white/10 pt-8 space-y-2 mb-10 md:mb-12">
-              <!-- שורה קטנה לסאבטוטל + מס -->
               <div class="flex justify-between text-sm text-white/60 mb-1">
                 <span>Subtotal</span>
                 <span id="subtotal-amount">$0.00</span>
@@ -317,10 +365,8 @@
 
   <!-- SCRIPT: MENU + CART + CHECKOUT -->
   <script>
-    // --- קבוע מס ---
-    const TAX_RATE = 0.08875; // 8.875% NYC
+    const TAX_RATE = 0.08875; // 8.875%
 
-    // MENU DATA
     const menuData = {
       premium: {
         title: "Premium Collection ($10)",
@@ -344,6 +390,23 @@
 
     function scrollToMenu() {
       document.getElementById('menu').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function toggleCart() {
+      const modal = document.getElementById('cart-modal');
+      modal.classList.toggle('hidden');
+      if (!modal.classList.contains('hidden')) {
+        renderModalCart();
+      }
+    }
+
+    function proceedToCheckout() {
+      toggleCart();
+      document.getElementById('order').scrollIntoView({ behavior: 'smooth' });
+      setTimeout(() => {
+        const nameInput = document.querySelector('input[name="name"]');
+        if (nameInput) nameInput.focus();
+      }, 800);
     }
 
     function renderMenu() {
@@ -377,7 +440,7 @@
                 <h5 class="font-display text-2xl text-chocolate mb-2 tracking-wide">${i.name}</h5>
                 <p class="font-serif text-base text-chocolate/60 mb-4 px-2 leading-relaxed min-h-[3rem]">${i.desc}</p>
                 <p class="font-serif text-lg text-gold-dark font-bold tracking-widest mb-6">$${i.price.toFixed(2)}</p>
-
+                
                 <div class="flex items-center gap-6 opacity-100">
                   <button onclick="updateCart(${i.id}, -1)" class="w-10 h-10 rounded-full border border-chocolate/10 text-chocolate hover:bg-chocolate hover:text-white transition-all flex items-center justify-center hover:border-chocolate">
                     <i class="fa-solid fa-minus text-xs"></i>
@@ -447,10 +510,10 @@
       }
 
       renderCart();
+      renderModalCart();
       saveCart();
     }
 
-    /* ---- renderCart עם מס ---- */
     function renderCart() {
       const container = document.getElementById("cart-items");
       const subtotalEl = document.getElementById("subtotal-amount");
@@ -458,7 +521,23 @@
       const totalEl = document.getElementById("total-price");
       const btnPay = document.getElementById("btn-pay");
 
+      const desktopBadge = document.getElementById("desktop-cart-count");
+      const mobileBadge = document.getElementById("mobile-cart-count");
+
       const items = Object.values(cart || {}).filter(Boolean);
+
+      const totalQty = items.reduce((sum, it) => sum + it.qty, 0);
+      if (desktopBadge && mobileBadge) {
+        if (totalQty > 0) {
+          desktopBadge.textContent = totalQty;
+          mobileBadge.textContent = totalQty;
+          desktopBadge.classList.remove('hidden');
+          mobileBadge.classList.remove('hidden');
+        } else {
+          desktopBadge.classList.add('hidden');
+          mobileBadge.classList.add('hidden');
+        }
+      }
 
       if (!items.length) {
         container.innerHTML = `
@@ -510,16 +589,54 @@
       btnPay.disabled = false;
     }
 
+    function renderModalCart() {
+      const container = document.getElementById('modal-cart-items');
+      const totalEl = document.getElementById('modal-total-price');
+      if (!container || !totalEl) return;
+
+      const items = Object.values(cart || {}).filter(Boolean);
+      if (!items.length) {
+        container.innerHTML = '<div class="text-center py-20 opacity-40 font-serif italic">Your cart is currently empty.</div>';
+        totalEl.textContent = '$0.00';
+        return;
+      }
+
+      let subtotal = 0;
+      container.innerHTML = items.map(item => {
+        const line = item.price * item.qty;
+        subtotal += line;
+        return `
+          <div class="flex justify-between items-center border-b border-chocolate/5 py-3 last:border-0">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
+                <img src="${findItemById(item.id)?.img || ''}" class="w-full h-full object-cover">
+              </div>
+              <div>
+                <p class="font-serif text-chocolate text-lg leading-none">${item.name}</p>
+                <p class="text-xs text-chocolate/50 mt-1">$${item.price} each</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <button onclick="updateCart(${item.id}, -1)" class="w-6 h-6 rounded-full border border-chocolate/20 text-chocolate flex items-center justify-center hover:bg-chocolate hover:text-white transition-colors text-xs">-</button>
+              <span class="font-display w-4 text-center">${item.qty}</span>
+              <button onclick="updateCart(${item.id}, 1)" class="w-6 h-6 rounded-full border border-chocolate/20 text-chocolate flex items-center justify-center hover:bg-chocolate hover:text-white transition-colors text-xs">+</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const taxAmount = subtotal * TAX_RATE;
+      const total = subtotal + taxAmount;
+      totalEl.textContent = '$' + total.toFixed(2);
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
-      // תמיד להתחיל מהבאנר גם במובייל
       window.scrollTo(0, 0);
 
       renderMenu();
-
-      // להעלות סל מה-session אם יש
       loadCartFromSession();
 
-      // לעדכן כמויות ב"פלוס מינוס" של המוצרים
+      // לעדכן מספרים מתחת לתמונות
       Object.values(cart || {}).forEach((item) => {
         if (!item) return;
         const span = document.getElementById(`qty-${item.id}`);
@@ -527,6 +644,7 @@
       });
 
       renderCart();
+      renderModalCart();
 
       const d = document.querySelector('input[name="date"]');
       if (d) {
@@ -537,11 +655,9 @@
     });
 
     window.addEventListener('load', () => {
-      // עוד פעם ליתר ביטחון שדפדפנים במובייל לא יקפצו למטה
       window.scrollTo(0, 0);
     });
 
-    // ===== processPayment – עובד עם Netlify Function =====
     async function processPayment() {
       const btn = document.getElementById("btn-pay");
       const errorEl = document.getElementById("error-msg");
@@ -567,10 +683,9 @@
           .map((item) => ({
             name: item.name,
             quantity: item.qty,
-            unitAmountCents: Math.round(item.price * 100) // המחיר הבסיסי – הטקס מחושב בנפרד
+            unitAmountCents: Math.round(item.price * 100)
           }));
 
-        // נשלח גם סכומים לחישוב עתידי בפונקציה (אם תרצה)
         const subtotalText = document.getElementById("subtotal-amount").textContent.replace('$', '');
         const taxText = document.getElementById("tax-amount").textContent.replace('$', '');
         const totalText = document.getElementById("total-price").textContent.replace('$', '');
