@@ -668,86 +668,108 @@
 
 
 
-    /* -----------------------------------
+   /* -----------------------------------
       PROCESS PAYMENT — CLEAN
-    ----------------------------------- */
-    async function processPayment() {
-      const btn = document.getElementById("btn-pay");
-      const err = document.getElementById("error-msg");
+  ----------------------------------- */
+  async function processPayment() {
+    const btn = document.getElementById("btn-pay");
+    const err = document.getElementById("error-msg");
 
-      err.classList.add("hidden");
-      err.textContent = "";
+    err.classList.add("hidden");
+    err.textContent = "";
 
-      const items = Object.values(cart);
-      if (!items.length) {
-        err.textContent = "Your box is empty.";
+    const items = Object.values(cart || {});
+    if (!items.length) {
+      err.textContent = "Your box is empty.";
+      err.classList.remove("hidden");
+      return;
+    }
+
+    const form = document.getElementById("order-form");
+    const formData = new FormData(form);
+
+    const date = formData.get("date");
+    const timeRange = formData.get("time");
+
+    if (!date || !timeRange) {
+      err.textContent = "Please choose pickup date & time.";
+      err.classList.remove("hidden");
+      return;
+    }
+
+    // "10:00 - 11:00" → "2025-12-18T10:00:00" / "2025-12-18T11:00:00"
+    const [startTime, endTime] = timeRange.split(" - ").map((s) => s.trim());
+
+    const pickupWindow = {
+      start: `${date}T${startTime}:00`,
+      end: `${date}T${endTime}:00`,
+    };
+
+    btn.disabled = true;
+    btn.innerText = "Processing...";
+
+    try {
+      const payload = {
+        cartItems: items.map((i) => ({
+          name: i.name,
+          quantity: i.qty,
+          unitAmountCents: Math.round(i.price * 100),
+        })),
+        redirectUrlBase: window.location.origin,
+        pickupDate: date,
+        pickupWindow, // 👈 זה מה שהפונקציה בשרת מצפה לקבל
+        customerName: formData.get("name"),
+        customerPhone: formData.get("phone"),
+        customerEmail: formData.get("email"),
+        notes: formData.get("notes") || "",
+      };
+
+      const res = await fetch("/.netlify/functions/create-checkout-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      let data;
+      // אם השרת מחזיר טקסט ולא JSON – לא ניפול
+      try {
+        data = await res.json();
+      } catch {
+        const text = await res.text();
+        throw new Error(text || "Server error");
+      }
+
+      if (!res.ok) {
+        const msg =
+          data?.error ||
+          data?.message ||
+          (data?.errors && data.errors[0]?.detail) ||
+          "Error creating checkout link.";
+        err.textContent = msg;
         err.classList.remove("hidden");
         return;
       }
 
-      btn.disabled = true;
-      btn.innerText = "Processing...";
-
-      try {
-        const formData = new FormData(document.getElementById("order-form"));
-
-        const payload = {
-  cartItems: items.map((i) => ({
-    name: i.name,
-    quantity: i.qty,
-    unitAmountCents: i.price * 100
-  })),
-  currency: "USD",
-  redirectUrlBase: window.location.origin,
-  pickupDate: formData.get("date"),
-  pickupTime: formData.get("time")?.trim(),
-  customerName: formData.get("name"),
-  customerPhone: formData.get("phone"),
-  customerEmail: formData.get("email"),
-  notes: formData.get("notes") || ""
-};const payload = {
-  cartItems: items.map((i) => ({
-    name: i.name,
-    quantity: i.qty,
-    unitAmountCents: i.price * 100
-  })),
-  currency: "USD",
-  redirectUrlBase: window.location.origin,
-  pickupDate: formData.get("date"),
-  pickupTime: formData.get("time")?.trim(),
-  customerName: formData.get("name"),
-  customerPhone: formData.get("phone"),
-  customerEmail: formData.get("email"),
-  notes: formData.get("notes") || ""
-};
-
-        const res = await fetch("/.netlify/functions/create-checkout-link", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          err.textContent = data.error || "Error creating checkout link.";
-          err.classList.remove("hidden");
-          return;
-        }
-
-        window.location.href = data.payment_link.url;
-
-      } catch (e) {
-        err.textContent = "Unexpected error.";
+      if (!data || !data.payment_link || !data.payment_link.url) {
+        err.textContent = "Server response is missing payment link.";
         err.classList.remove("hidden");
-
-      } finally {
-        btn.disabled = false;
-        btn.innerText = "Proceed to Payment";
+        return;
       }
+
+      // הכול טוב – עוברים לקישור תשלום של Square
+      window.location.href = data.payment_link.url;
+    } catch (e) {
+      console.error("Checkout error:", e);
+      err.textContent = e.message || "Unexpected error.";
+      err.classList.remove("hidden");
+    } finally {
+      btn.disabled = false;
+      btn.innerText = "Proceed to Payment";
     }
+  }
   </script>
 
 </body>
 </html>
+
 
