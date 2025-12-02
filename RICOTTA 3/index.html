@@ -700,7 +700,7 @@
           currency: "USD",
           redirectUrlBase: window.location.origin,
           pickupDate: formData.get("date"),
-          pickupWindow: formData.get("time"),
+          pickupTime: formData.get("time").replace(" - ", " to "),
           customerName: formData.get("name"),
           customerPhone: formData.get("phone"),
           customerEmail: formData.get("email")
