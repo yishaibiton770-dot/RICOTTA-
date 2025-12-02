@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 
@@ -146,7 +145,6 @@
       </div>
     </div>
   </nav>
-
   <!-- CART MODAL -->
   <div id="cart-modal" class="fixed inset-0 z-[100] hidden">
     <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="toggleCart()"></div>
@@ -181,23 +179,24 @@
     <div class="absolute inset-0 z-0">
       <img src="https://i.postimg.cc/FR4RTRyW/21d15421-7223-4efe-9e38-6ea5a941ac0b-20251125-135133-0000.png"
            class="w-full h-full object-cover hero-img opacity-100" />
+
       <div class="absolute inset-0 bg-white/10"></div>
     </div>
 
     <div class="relative z-10 text-center px-6 max-w-4xl mx-auto mt-12 space-y-6 md:space-y-8">
-      <h2 class="text-chocolate text-base md:text-lg italic font-light tracking-[0.2em]">
+      <h2 class="text-chocolate text-base md:text-lg italic font-light tracking-[0.2em] animate-fade-up">
         Hanukkah 2025 Collection
       </h2>
 
-      <h1 class="text-6xl md:text-9xl text-chocolate font-display tracking-wider">
+      <h1 class="text-6xl md:text-9xl text-chocolate font-display tracking-wider animate-fade-up delay-100">
         RICOTTA
       </h1>
 
-      <p class="text-chocolate/90 text-lg md:text-xl italic tracking-wide">
+      <p class="text-chocolate/90 text-lg md:text-xl italic tracking-wide animate-fade-up delay-200">
         "A Bite from Dreams"
       </p>
 
-      <div class="pt-6 md:pt-8">
+      <div class="pt-6 md:pt-8 animate-fade-up delay-300">
         <button onclick="scrollToMenu()" class="bg-white text-chocolate px-10 py-4 text-xs uppercase tracking-[0.3em] shadow-xl hover:bg-chocolate hover:text-white transition-all">
           View The Menu
         </button>
@@ -208,7 +207,7 @@
   <!-- MENU SECTION -->
   <section id="menu" class="py-20 md:py-32 w-full bg-white relative">
     <div class="max-w-[1800px] mx-auto px-6 md:px-12">
-      <div class="text-center mb-16 md:mb-24">
+      <div class="text-center mb-16 md:mb-24 animate-fade-up delay-300">
         <h3 class="font-display text-4xl md:text-5xl text-chocolate mb-4">The Collection</h3>
         <div class="w-px h-12 md:h-16 bg-gold/30 mx-auto mb-4"></div>
         <p class="text-chocolate/60 italic font-light text-base md:text-lg">
@@ -221,7 +220,6 @@
       </div>
     </div>
   </section>
-
   <!-- ORDER SECTION -->
   <section id="order" class="bg-[#F4F2EE] py-20 md:py-32 border-t border-chocolate/5">
     <div class="max-w-7xl mx-auto px-6 md:px-12">
@@ -288,7 +286,6 @@
                 <input type="date" name="date"
                        min="2025-12-15" max="2025-12-22"
                        required
-                       onchange="validatePickupDate(this)"
                        class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent">
               </div>
 
@@ -389,7 +386,6 @@
       </div>
     </div>
   </section>
-
   <!-- FOOTER -->
   <footer class="bg-chocolate text-cream/40 py-10 border-t border-white/5 mt-20">
     <div class="max-w-7xl mx-auto px-6 text-center">
@@ -411,7 +407,8 @@
     </div>
   </footer>
 
-  <!-- SCRIPT -->
+
+  <!-- SCRIPT — CLEAN, UPDATED -->
   <script>
     const TAX_RATE = 0.08875;
 
@@ -438,6 +435,7 @@
       }
     };
 
+
     /* -----------------------------------
       CART LOGIC
     ----------------------------------- */
@@ -457,6 +455,7 @@
       toggleCart();
       document.getElementById("order").scrollIntoView({ behavior: "smooth" });
     }
+
 
     /* RENDER MENU */
     function renderMenu() {
@@ -497,7 +496,9 @@
 
                   <h5 class="font-display text-2xl text-chocolate mb-2 tracking-wide">${i.name}</h5>
                   <p class="font-serif text-base text-chocolate/60 mb-4 px-2 leading-relaxed min-h-[3rem]">${i.desc}</p>
-                  <p class="font-serif text-lg text-gold-dark font-bold tracking-widest mb-6">$${i.price.toFixed(2)}</p>
+                  <p class="font-serif text-lg text-gold-dark font-bold tracking-widest mb-6">$${i.price.toFixed(
+                    2
+                  )}</p>
 
                   <div class="flex items-center gap-6">
                     <button onclick="updateCart(${i.id}, -1)"
@@ -523,6 +524,7 @@
       }
     }
 
+
     /* FIND ITEM */
     function findItemById(id) {
       for (const cat of Object.values(menuData)) {
@@ -531,6 +533,7 @@
       }
       return null;
     }
+
 
     /* UPDATE CART */
     function updateCart(id, delta) {
@@ -552,6 +555,7 @@
       renderModalCart();
     }
 
+
     /* RENDER MAIN CART */
     function renderCart() {
       const container = document.getElementById("cart-items");
@@ -560,25 +564,7 @@
       const totalEl = document.getElementById("total-price");
       const btnPay = document.getElementById("btn-pay");
 
-      const desktopBadge = document.getElementById("desktop-cart-count");
-      const mobileBadge = document.getElementById("mobile-cart-count");
-
       const items = Object.values(cart);
-
-      const totalQty = items.reduce((s, i) => s + i.qty, 0);
-      if (totalQty > 0) {
-        if (desktopBadge) {
-          desktopBadge.textContent = totalQty;
-          desktopBadge.classList.remove("hidden");
-        }
-        if (mobileBadge) {
-          mobileBadge.textContent = totalQty;
-          mobileBadge.classList.remove("hidden");
-        }
-      } else {
-        if (desktopBadge) desktopBadge.classList.add("hidden");
-        if (mobileBadge) mobileBadge.classList.add("hidden");
-      }
 
       if (!items.length) {
         container.innerHTML = `
@@ -619,6 +605,7 @@
       totalEl.textContent = `$${total.toFixed(2)}`;
       btnPay.disabled = false;
     }
+
 
     /* RENDER MODAL CART */
     function renderModalCart() {
@@ -669,131 +656,121 @@
       totalEl.textContent = "$" + total.toFixed(2);
     }
 
-    /* חסימת שבת + 20/12 */
-    function validatePickupDate(input) {
-      if (!input || !input.value) return;
 
-      const value = input.value;
-
-      // חסימה ספציפית של 20 בדצמבר
-      if (value === "2025-12-20") {
-        alert("לא ניתן לבצע הזמנות בתאריך זה. בחר יום אחר.");
-        input.value = "";
-        return;
-      }
-
-      // חסימת שבת – 6 = Saturday
-      const d = new Date(value + "T12:00:00");
-      const day = d.getUTCDay(); // 0=Sunday ... 6=Saturday
-      if (day === 6) {
-        alert("לא ניתן לבצע הזמנות לשבת. בחר יום אחר.");
-        input.value = "";
-      }
-    }
-
-    /* INITIAL LOAD */
+    /* -----------------------------------
+      INITIAL LOAD
+    ----------------------------------- */
     document.addEventListener("DOMContentLoaded", () => {
       renderMenu();
       renderCart();
       renderModalCart();
     });
 
-    /* PROCESS PAYMENT – שולח את כל פרטי האיסוף */
-    async function processPayment() {
-      const btn = document.getElementById("btn-pay");
-      const err = document.getElementById("error-msg");
 
-      err.classList.add("hidden");
-      err.textContent = "";
 
-      const items = Object.values(cart || {});
-      if (!items.length) {
-        err.textContent = "Your box is empty.";
-        err.classList.remove("hidden");
-        return;
-      }
+/* -----------------------------------
+      PROCESS PAYMENT — CLEAN
+  ----------------------------------- */
+  async function processPayment() {
+    const btn = document.getElementById("btn-pay");
+    const err = document.getElementById("error-msg");
 
-      const formEl = document.getElementById("order-form");
-      const formData = new FormData(formEl);
+    err.classList.add("hidden");
+    err.textContent = "";
 
-      const pickupDate = formData.get("date");
-      const pickupTimeLabel = formData.get("time") || "";
+    const items = Object.values(cart || {});
+    if (!items.length) {
+      err.textContent = "Your box is empty.";
+      err.classList.remove("hidden");
+      return;
+    }
 
-      if (!pickupDate || !pickupTimeLabel) {
-        err.textContent = "Please choose pickup date and time.";
-        err.classList.remove("hidden");
-        return;
-      }
+    const form = document.getElementById("order-form");
+    const formData = new FormData(form);
 
-      const [fromStr, toStr] = pickupTimeLabel.split("-").map((s) => s.trim());
-      const pickupWindow = {
-        start: `${pickupDate}T${fromStr}:00`,
-        end: `${pickupDate}T${toStr}:00`,
+    const date = formData.get("date");
+    const timeRange = formData.get("time");
+
+    if (!date || !timeRange) {
+      err.textContent = "Please choose pickup date & time.";
+      err.classList.remove("hidden");
+      return;
+    }
+
+    // "10:00 - 11:00" → start/end ISO
+    const [startTime, endTime] = timeRange.split(" - ").map((s) => s.trim());
+
+    const pickupWindow = {
+      start: `${date}T${startTime}:00`,
+      end: `${date}T${endTime}:00`,
+    };
+
+    btn.disabled = true;
+    btn.innerText = "Processing...";
+
+    try {
+      const payload = {
+        cartItems: items.map((i) => ({
+          name: i.name,
+          quantity: i.qty,
+          unitAmountCents: Math.round(i.price * 100),
+        })),
+        redirectUrlBase: window.location.origin,
+        pickupDate: date,
+        pickupWindow, // מה שהפונקציה ב- Netlify מצפה
+        customerName: formData.get("name"),
+        customerPhone: formData.get("phone"),
+        customerEmail: formData.get("email"),
+        notes: formData.get("notes") || "",
       };
 
-      btn.disabled = true;
-      btn.innerText = "Processing...";
+      const res = await fetch("/.netlify/functions/create-checkout-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
+      // קוראים את הגוף פעם אחת בלבד
+      const raw = await res.text();
+      let data = null;
       try {
-        const payload = {
-          cartItems: items.map((i) => ({
-            name: i.name,
-            quantity: i.qty,
-            unitAmountCents: Math.round(i.price * 100),
-          })),
-          currency: "USD",
-          redirectUrlBase: window.location.origin,
-          pickupDate,
-          pickupWindow,
-          customerName: formData.get("name"),
-          customerPhone: formData.get("phone"),
-          customerEmail: formData.get("email"),
-          notes: formData.get("notes") || "",
-        };
-
-        const res = await fetch("/.netlify/functions/create-checkout-link", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        const text = await res.text();
-        let data;
-        try {
-          data = JSON.parse(text);
-        } catch {
-          data = null;
-        }
-
-        if (!res.ok) {
-          const msg =
-            data?.error ||
-            data?.message ||
-            (Array.isArray(data?.errors) && data.errors[0]?.detail) ||
-            "There was a problem creating the payment link. Please try again.";
-          err.textContent = msg;
-          err.classList.remove("hidden");
-          console.error("Checkout error (server response):", text);
-          return;
-        }
-
-        if (!data || !data.payment_link || !data.payment_link.url) {
-          err.textContent = "Unexpected server response. Please contact the store.";
-          err.classList.remove("hidden");
-          console.error("Invalid function response:", text);
-          return;
-        }
-
-        window.location.href = data.payment_link.url;
+        data = raw ? JSON.parse(raw) : null;
       } catch (e) {
-        console.error("Checkout error:", e);
-        err.textContent = "Unexpected error. Please try again.";
-        err.classList.remove("hidden");
-      } finally {
-        btn.disabled = false;
-        btn.innerText = "Proceed to Payment";
+        console.warn("Response is not valid JSON:", raw);
       }
+
+      if (!res.ok) {
+        const msg =
+          data?.error ||
+          data?.message ||
+          (data?.errors && data.errors[0]?.detail) ||
+          raw ||
+          "Error creating checkout link.";
+        err.textContent = msg;
+        err.classList.remove("hidden");
+        return;
+      }
+
+      if (!data || !data.payment_link || !data.payment_link.url) {
+        console.error("Invalid response from server:", data || raw);
+        err.textContent = "Server response is missing payment link.";
+        err.classList.remove("hidden");
+        return;
+      }
+
+      window.location.href = data.payment_link.url;
+    } catch (e) {
+      console.error("Checkout error:", e);
+      err.textContent = e.message || "Unexpected error.";
+      err.classList.remove("hidden");
+    } finally {
+      btn.disabled = false;
+      btn.innerText = "Proceed to Payment";
     }
+  }
   </script>
+
 </body>
 </html>
+
+
