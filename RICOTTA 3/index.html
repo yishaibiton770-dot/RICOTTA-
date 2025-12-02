@@ -253,7 +253,14 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
               <div class="space-y-2">
                 <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Date (Dec 15-22)</label>
-                <input type="date" name="date" min="2025-12-15" max="2025-12-22" required class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent">
+                <input
+                  type="date"
+                  name="date"
+                  min="2025-12-15"
+                  max="2025-12-22"
+                  required
+                  onchange="validatePickupDate(this)"
+                  class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent">
               </div>
               <div class="space-y-2">
                 <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Pickup Time</label>
@@ -326,7 +333,7 @@
     </div>
   </section>
 
-  <!-- Footer -->
+  <!-- Footer (info + contact) -->
   <section class="bg-white py-20 px-6 border-t border-chocolate/5">
     <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-16 text-center">
       <div class="space-y-4">
@@ -630,13 +637,32 @@
       totalEl.textContent = '$' + total.toFixed(2);
     }
 
+    // חסימת שבת + 20/12
+    function validatePickupDate(input) {
+      if (!input || !input.value) return;
+      const value = input.value;
+
+      // חסימה ספציפית של 20 בדצמבר
+      if (value === "2025-12-20") {
+        alert("לא ניתן לבצע הזמנות בתאריך זה. בחר יום אחר.");
+        input.value = "";
+        return;
+      }
+
+      const d = new Date(value + "T12:00:00");
+      const day = d.getUTCDay(); // 0=Sunday ... 6=Saturday
+      if (day === 6) {
+        alert("לא ניתן לבצע הזמנות לשבת. בחר יום אחר.");
+        input.value = "";
+      }
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
       window.scrollTo(0, 0);
 
       renderMenu();
       loadCartFromSession();
 
-      // לעדכן מספרים מתחת לתמונות
       Object.values(cart || {}).forEach((item) => {
         if (!item) return;
         const span = document.getElementById(`qty-${item.id}`);
@@ -671,65 +697,83 @@
         return;
       }
 
+      const form = document.getElementById("order-form");
+      const formData = new FormData(form);
+
+      const pickupDate = formData.get("date");
+      const pickupTimeLabel = (formData.get("time") || "").toString().trim();
+
+      if (!pickupDate || !pickupTimeLabel) {
+        errorEl.textContent = "Please choose pickup date and time.";
+        errorEl.classList.remove("hidden");
+        return;
+      }
+
+      const timeParts = pickupTimeLabel.split("-").map((s) => s.trim());
+      const pickupWindow = {
+        from: timeParts[0] || "",
+        to: timeParts[1] || ""
+      };
+
+      const cartItems = Object.values(cart)
+        .filter(Boolean)
+        .map((item) => ({
+          name: item.name,
+          quantity: item.qty,
+          unitAmountCents: Math.round(item.price * 100)
+        }));
+
+      const subtotalText = document.getElementById("subtotal-amount").textContent.replace('$', '');
+      const taxText = document.getElementById("tax-amount").textContent.replace('$', '');
+      const totalText = document.getElementById("total-price").textContent.replace('$', '');
+
+      const payload = {
+        cartItems,
+        currency: "USD",
+        redirectUrlBase: window.location.origin,
+        pickupDate,
+        pickupTime: pickupTimeLabel,
+        pickupWindow,
+        customerName: formData.get("name"),
+        customerPhone: formData.get("phone"),
+        customerEmail: formData.get("email"),
+        notes: formData.get("notes") || "",
+        subtotalCents: Math.round(parseFloat(subtotalText || "0") * 100),
+        taxCents: Math.round(parseFloat(taxText || "0") * 100),
+        totalCents: Math.round(parseFloat(totalText || "0") * 100)
+      };
+
       btn.disabled = true;
       btn.innerText = "Processing...";
 
       try {
-        const form = document.getElementById("order-form");
-        const formData = new FormData(form);
-
-        const cartItems = Object.values(cart)
-          .filter(Boolean)
-          .map((item) => ({
-            name: item.name,
-            quantity: item.qty,
-            unitAmountCents: Math.round(item.price * 100)
-          }));
-
-        const subtotalText = document.getElementById("subtotal-amount").textContent.replace('$', '');
-        const taxText = document.getElementById("tax-amount").textContent.replace('$', '');
-        const totalText = document.getElementById("total-price").textContent.replace('$', '');
-
-        const payload = {
-          cartItems,
-          currency: "USD",
-          redirectUrlBase: window.location.origin,
-          pickupDate: formData.get("date"),
-          pickupTime: formData.get("time"),
-          customerName: formData.get("name"),
-          customerPhone: formData.get("phone"),
-          customerEmail: formData.get("email"),
-          subtotalCents: Math.round(parseFloat(subtotalText || "0") * 100),
-          taxCents: Math.round(parseFloat(taxText || "0") * 100),
-          totalCents: Math.round(parseFloat(totalText || "0") * 100)
-        };
-
         const response = await fetch("/.netlify/functions/create-checkout-link", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
 
-        // **** כאן השינוי כדי לתפוס SOLD OUT וכדומה ****
-        if (!response.ok) {
-          const data = await response.json().catch(() => null);
-          console.error("Checkout error:", response.status, data);
+        const text = await response.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = null;
+        }
 
+        if (!response.ok) {
+          console.error("Checkout error:", response.status, text);
           const msg =
             (data && (data.message || data.error)) ||
             "There was a problem creating the payment link. Please try again in a minute.";
-
           errorEl.textContent = msg;
           errorEl.classList.remove("hidden");
           return;
         }
 
-        const data = await response.json();
-
         if (!data || !data.payment_link || !data.payment_link.url) {
-          console.error("Invalid response from function:", data);
-          errorEl.textContent =
-            "Unexpected server response. Please contact the store.";
+          console.error("Invalid response from function:", text);
+          errorEl.textContent = "Unexpected server response. Please contact the store.";
           errorEl.classList.remove("hidden");
           return;
         }
@@ -737,8 +781,7 @@
         window.location.href = data.payment_link.url;
       } catch (err) {
         console.error("Checkout error:", err);
-        errorEl.textContent =
-          "Unexpected error during checkout. Please try again.";
+        errorEl.textContent = "Unexpected error during checkout. Please try again.";
         errorEl.classList.remove("hidden");
       } finally {
         btn.disabled = false;
