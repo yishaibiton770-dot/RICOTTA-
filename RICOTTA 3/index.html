@@ -668,7 +668,7 @@
 
 
 
-   /* -----------------------------------
+/* -----------------------------------
       PROCESS PAYMENT — CLEAN
   ----------------------------------- */
   async function processPayment() {
@@ -697,7 +697,7 @@
       return;
     }
 
-    // "10:00 - 11:00" → "2025-12-18T10:00:00" / "2025-12-18T11:00:00"
+    // "10:00 - 11:00" → start/end ISO
     const [startTime, endTime] = timeRange.split(" - ").map((s) => s.trim());
 
     const pickupWindow = {
@@ -717,7 +717,7 @@
         })),
         redirectUrlBase: window.location.origin,
         pickupDate: date,
-        pickupWindow, // 👈 זה מה שהפונקציה בשרת מצפה לקבל
+        pickupWindow, // מה שהפונקציה ב- Netlify מצפה
         customerName: formData.get("name"),
         customerPhone: formData.get("phone"),
         customerEmail: formData.get("email"),
@@ -730,13 +730,13 @@
         body: JSON.stringify(payload),
       });
 
-      let data;
-      // אם השרת מחזיר טקסט ולא JSON – לא ניפול
+      // קוראים את הגוף פעם אחת בלבד
+      const raw = await res.text();
+      let data = null;
       try {
-        data = await res.json();
-      } catch {
-        const text = await res.text();
-        throw new Error(text || "Server error");
+        data = raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        console.warn("Response is not valid JSON:", raw);
       }
 
       if (!res.ok) {
@@ -744,6 +744,7 @@
           data?.error ||
           data?.message ||
           (data?.errors && data.errors[0]?.detail) ||
+          raw ||
           "Error creating checkout link.";
         err.textContent = msg;
         err.classList.remove("hidden");
@@ -751,12 +752,12 @@
       }
 
       if (!data || !data.payment_link || !data.payment_link.url) {
+        console.error("Invalid response from server:", data || raw);
         err.textContent = "Server response is missing payment link.";
         err.classList.remove("hidden");
         return;
       }
 
-      // הכול טוב – עוברים לקישור תשלום של Square
       window.location.href = data.payment_link.url;
     } catch (e) {
       console.error("Checkout error:", e);
@@ -771,5 +772,6 @@
 
 </body>
 </html>
+
 
 
