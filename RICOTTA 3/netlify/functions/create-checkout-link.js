@@ -3,6 +3,7 @@ const https = require("https");
 const crypto = require("crypto");
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
+const MAX_DAILY_LIMIT = 250; // מקסימום דונאטס ליום (לפי תאריך איסוף)
 
 // קריאה כללית ל־Square
 function callSquare(path, method, bodyObj) {
@@ -104,6 +105,22 @@ exports.handler = async (event) => {
       };
     }
 
+    // מחשבים כמה דונאטס הלקוח מבקש בהזמנה הזאת
+    const requestedQty = cartItems.reduce(
+      (sum, item) => sum + (Number(item.quantity) || 0),
+      0
+    );
+
+    if (!pickupDate) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: "MISSING_PICKUP_DATE",
+          message: "Pickup date is required.",
+        }),
+      };
+    }
+
     // 1) שולפים את רשימת ה-locations מהחשבון שלך ב-Square
     const locationsRes = await callSquare("/v2/locations", "GET");
     if (locationsRes.statusCode >= 400 || locationsRes.body.errors) {
@@ -136,7 +153,84 @@ exports.handler = async (event) => {
 
     const locationId = selectedLocation.id;
 
-    // 2) בונים את ה-Order לפי העגלה
+    // 2) BEFORE creating the Payment Link – בודקים כמה כבר מוזמן ל־pickupDate הזה
+    //    נשתמש ב-Search Orders API ונפילטר לפי "Pickup: YYYY-MM-DD" בתוך ה-note
+    let alreadyOrderedForThisDate = 0;
+    try {
+      const searchBody = {
+        location_ids: [locationId],
+        query: {
+          filter: {
+            state_filter: {
+              states: ["OPEN", "COMPLETED"], // גם הזמנות פתוחות וגם הושלמו
+            },
+          },
+        },
+      };
+
+      const ordersRes = await callSquare(
+        "/v2/orders/search",
+        "POST",
+        searchBody
+      );
+
+      if (ordersRes.statusCode >= 400 || ordersRes.body.errors) {
+        console.error("Square search orders error:", ordersRes.body);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            error: "AVAILABILITY_CHECK_FAILED",
+            message:
+              "We could not verify today's availability. Please try again in a moment.",
+          }),
+        };
+      }
+
+      const orders = ordersRes.body.orders || [];
+
+      for (const order of orders) {
+        const note = order.note || "";
+        const lineItems = order.line_items || [];
+        // רק הזמנות שה-note שלהן מכיל את אותו תאריך איסוף
+        if (!note.includes(`Pickup: ${pickupDate}`)) continue;
+
+        for (const li of lineItems) {
+          const qty = parseInt(li.quantity || "0", 10);
+          if (!Number.isNaN(qty)) {
+            alreadyOrderedForThisDate += qty;
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error while checking daily limit:", e);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          error: "AVAILABILITY_CHECK_FAILED",
+          message:
+            "We could not verify today's availability. Please try again in a moment.",
+        }),
+      };
+    }
+
+    const remaining = MAX_DAILY_LIMIT - alreadyOrderedForThisDate;
+
+    if (requestedQty > remaining) {
+      // אין מספיק מקום לתאריך הזה
+      return {
+        statusCode: 409,
+        body: JSON.stringify({
+          error: "DAILY_LIMIT_REACHED",
+          remaining: Math.max(0, remaining),
+          message:
+            remaining > 0
+              ? `Only ${remaining} donuts left for ${pickupDate}. Please reduce your quantity or choose another date.`
+              : `We're sold out for ${pickupDate}. Please select another date.`,
+        }),
+      };
+    }
+
+    // 3) בונים את ה-Order לפי העגלה
     const lineItems = cartItems.map((item) => ({
       name: item.name,
       quantity: String(item.quantity || 1),
@@ -146,19 +240,26 @@ exports.handler = async (event) => {
       },
     }));
 
+    const noteParts = [
+      pickupDate && pickupTime ? `Pickup: ${pickupDate} ${pickupTime}` : null,
+      customerName ? `Customer: ${customerName}` : null,
+      customerPhone ? `Phone: ${customerPhone}` : null,
+      customerEmail ? `Email: ${customerEmail}` : null,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
     const order = {
       location_id: locationId,
       line_items: lineItems,
-      note: [
-        pickupDate && pickupTime
-          ? `Pickup: ${pickupDate} ${pickupTime}`
-          : null,
-        customerName ? `Customer: ${customerName}` : null,
-        customerPhone ? `Phone: ${customerPhone}` : null,
-        customerEmail ? `Email: ${customerEmail}` : null,
-      ]
-        .filter(Boolean)
-        .join(" | "),
+      note: noteParts,
+      metadata: {
+        pickup_date: pickupDate || "",
+        pickup_time: pickupTime || "",
+        customer_name: customerName || "",
+        customer_phone: customerPhone || "",
+        customer_email: customerEmail || "",
+      },
     };
 
     // idempotency key בטוח (גם אם randomUUID לא קיים)
@@ -166,7 +267,7 @@ exports.handler = async (event) => {
       ? crypto.randomUUID()
       : crypto.randomBytes(16).toString("hex");
 
-    // 3) יוצרים Payment Link
+    // 4) יוצרים Payment Link
     const checkoutBody = {
       idempotency_key: idempotencyKey,
       order,
