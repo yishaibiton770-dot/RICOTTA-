@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 
@@ -716,7 +717,7 @@
       const formData = new FormData(formEl);
 
       const pickupDate = formData.get("date");
-      const pickupTime: formData.get("time"),
+      const pickupTimeLabel = formData.get("time") || "";
 
       if (!pickupDate || !pickupTimeLabel) {
         err.textContent = "Please choose pickup date and time.";
