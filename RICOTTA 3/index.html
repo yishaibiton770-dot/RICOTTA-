@@ -1,28 +1,50 @@
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RICOTTA | Boutique Donuts</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
-
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Playfair+Display:wght@400;500;600&display=swap"
-    rel="stylesheet" />
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+  />
 
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream: "#F9F8F6",
+            chocolate: "#2A221E",
+            gold: "#BFA67A",
+            "gold-dark": "#C0B293",
+            "input-bg": "#F4F2EE"
+          },
+          fontFamily: {
+            serif: ['"Cormorant Garamond"', "serif"],
+            display: ['"Playfair Display"', "serif"]
+          },
+          letterSpacing: {
+            "widest-xl": "0.25em"
+          }
+        }
+      }
+    };
+  </script>
 
   <style>
     body {
       background-color: #f9f8f6;
       color: #2a221e;
-      font-family: "Cormorant Garamond", serif;
     }
-
     .luxury-shadow {
       box-shadow: 0 20px 40px -10px rgba(63, 47, 40, 0.1);
     }
@@ -35,500 +57,823 @@
       border-radius: 0 !important;
       transition: all 0.3s ease;
     }
-
     input:focus,
     select:focus,
     textarea:focus {
       border-color: #d7c9a8 !important;
-      background-color: #fff !important;
       outline: none;
+      background-color: #fff !important;
     }
 
     ::-webkit-scrollbar {
       width: 6px;
     }
-
     ::-webkit-scrollbar-track {
       background: #f7f4ee;
     }
-
     ::-webkit-scrollbar-thumb {
       background: #d7c9a8;
     }
 
-    .hero-img {
-      object-position: center center;
+    .btn-luxury {
+      position: relative;
+      overflow: hidden;
+      transition: all 0.5s ease;
+    }
+    .btn-luxury:hover {
+      background-color: #d7c9a8;
+      color: #3f2f28;
+      letter-spacing: 0.25em;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .animate-fade-up {
+      opacity: 0;
+      animation: fadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .delay-100 {
+      animation-delay: 0.2s;
+    }
+    .delay-200 {
+      animation-delay: 0.4s;
+    }
+    .delay-300 {
+      animation-delay: 0.6s;
+    }
+
+    .loader {
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #2a221e;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
     }
 
     @media (max-width: 768px) {
       .hero-img {
-        object-position: 65% center;
+        object-position: center;
       }
     }
   </style>
 </head>
-
 <body class="antialiased min-h-screen flex flex-col font-serif">
-
-  <!-- NAVBAR -->
-  <nav class="fixed w-full z-50 bg-white/90 backdrop-blur-md border-b border-chocolate/5">
+  <!-- Navbar -->
+  <nav
+    class="fixed w-full z-50 bg-white/90 backdrop-blur-md border-b border-chocolate/5 transition-all duration-500"
+    id="navbar"
+  >
     <div class="max-w-7xl mx-auto px-6 lg:px-12">
       <div class="flex justify-between items-center h-20 md:h-24">
-
-        <div class="cursor-pointer flex flex-col items-center" onclick="window.scrollTo(0,0)">
-          <span class="font-display text-2xl md:text-3xl tracking-[0.2em] text-chocolate">RICOTTA</span>
-          <span class="font-serif text-[10px] text-chocolate/40 tracking-[0.4em] uppercase">Boutique Donuts</span>
+        <div
+          class="flex flex-col items-center cursor-pointer group"
+          onclick="window.scrollTo(0,0)"
+        >
+          <span
+            class="font-display text-2xl md:text-3xl tracking-[0.2em] text-chocolate group-hover:text-gold transition-colors duration-500"
+            >RICOTTA</span
+          >
+          <span
+            class="font-serif text-[10px] text-chocolate/40 tracking-[0.4em] uppercase mt-1"
+            >Boutique Donuts</span
+          >
         </div>
 
         <div class="hidden md:flex items-center space-x-12">
-          <a href="#menu" class="text-sm uppercase tracking-[0.15em] text-chocolate/60 hover:text-chocolate">
-            The Collection
-          </a>
-
-          <a href="https://www.instagram.com/ricottacoffee"
-             target="_blank"
-             class="text-chocolate/60 hover:text-chocolate">
+          <a
+            href="#menu"
+            class="text-sm uppercase tracking-[0.15em] text-chocolate/60 hover:text-chocolate transition-colors"
+            >The Collection</a
+          >
+          <a
+            href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253"
+            target="_blank"
+            class="text-chocolate/60 hover:text-chocolate transition-colors"
+          >
             <i class="fa-brands fa-instagram text-lg"></i>
           </a>
-
-          <button onclick="scrollToMenu()"
-                  class="border px-8 py-3 border-chocolate/20 text-xs uppercase tracking-[0.25em] hover:bg-chocolate hover:text-white">
+          <button
+            onclick="scrollToMenu()"
+            class="border border-chocolate/20 px-8 py-3 text-xs uppercase tracking-[0.25em] hover:bg-chocolate hover:text-white transition-all duration-500"
+          >
             Order Now
           </button>
-
-          <div class="relative cursor-pointer" onclick="toggleCart()">
-            <i class="fa-solid fa-bag-shopping text-xl text-chocolate"></i>
-            <span id="desktop-cart-count"
-                  class="hidden absolute -top-2 -right-2 bg-gold text-white text-[10px] w-4 h-4 flex justify-center items-center rounded-full">0</span>
-          </div>
         </div>
 
-        <div class="md:hidden flex items-center gap-4">
-          <a href="https://www.instagram.com/ricottacoffee" target="_blank" class="text-chocolate/70 text-xl">
-            <i class="fa-brands fa-instagram"></i>
+        <div class="md:hidden p-2 cursor-pointer flex items-center gap-4">
+          <a
+            href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253"
+            target="_blank"
+            class="text-chocolate/60 hover:text-chocolate"
+          >
+            <i class="fa-brands fa-instagram text-xl"></i>
           </a>
-
-          <div class="relative cursor-pointer" onclick="toggleCart()">
+          <div onclick="scrollToMenu()">
             <i class="fa-solid fa-bag-shopping text-xl text-chocolate"></i>
-            <span id="mobile-cart-count"
-                  class="hidden absolute -top-2 -right-2 bg-gold text-white text-[10px] w-4 h-4 flex justify-center items-center rounded-full">0</span>
           </div>
         </div>
-
       </div>
     </div>
   </nav>
 
-  <!-- HERO -->
-  <section class="relative h-[75vh] md:h-[90vh] min-h-[500px] flex items-center justify-center overflow-hidden bg-cream">
+  <!-- Hero -->
+  <section
+    class="relative h-[75vh] md:h-[90vh] min-h-[500px] flex items-center justify-center overflow-hidden bg-cream"
+  >
     <div class="absolute inset-0 z-0">
-      <img src="https://i.postimg.cc/FR4RTRyW/21d15421-7223-4efe-9e38-6ea5a941ac0b-20251125-135133-0000.png"
-           class="w-full h-full object-cover hero-img opacity-100" />
-
+      <img
+        src="https://i.postimg.cc/FR4RTRyW/21d15421-7223-4efe-9e38-6ea5a941ac0b-20251125-135133-0000.png"
+        alt="Ricotta Donuts Banner"
+        class="w-full h-full object-cover hero-img opacity-100"
+      />
       <div class="absolute inset-0 bg-white/10"></div>
     </div>
 
-    <div class="relative z-10 text-center px-6 max-w-4xl mx-auto mt-12 space-y-6 md:space-y-8">
-      <h2 class="text-chocolate text-base md:text-lg italic font-light tracking-[0.2em]">
+    <div
+      class="relative z-10 text-center px-6 max-w-4xl mx-auto mt-12 space-y-6 md:space-y-8"
+    >
+      <h2
+        class="text-chocolate text-base md:text-lg italic font-light tracking-[0.2em] animate-fade-up"
+      >
         Hanukkah 2025 Collection
       </h2>
-
-      <h1 class="text-6xl md:text-9xl text-chocolate font-display tracking-wider">
+      <h1
+        class="text-6xl md:text-9xl text-chocolate font-display tracking-wider animate-fade-up delay-100"
+      >
         RICOTTA
       </h1>
-
-      <p class="text-chocolate/90 text-lg md:text-xl italic tracking-wide">
+      <p
+        class="text-chocolate/90 text-lg md:text-xl italic tracking-wide animate-fade-up delay-200"
+      >
         "A Bite from Dreams"
       </p>
 
-      <div class="pt-6 md:pt-8">
-        <button onclick="scrollToMenu()"
-                class="bg-white text-chocolate px-10 py-4 text-xs uppercase tracking-[0.3em] shadow-xl hover:bg-chocolate hover:text-white transition-all">
+      <div class="pt-6 md:pt-8 animate-fade-up delay-300">
+        <button
+          onclick="scrollToMenu()"
+          class="bg-white text-chocolate px-10 py-4 text-xs uppercase tracking-[0.3em] shadow-xl hover:bg-chocolate hover:text-white transition-all duration-500"
+        >
           View The Menu
         </button>
       </div>
     </div>
   </section>
 
-  <!-- MENU SECTION -->
+  <!-- Menu Section -->
   <section id="menu" class="py-20 md:py-32 w-full bg-white relative">
     <div class="max-w-[1800px] mx-auto px-6 md:px-12">
-      <div class="text-center mb-16 md:mb-24">
-        <h3 class="font-display text-4xl md:text-5xl text-chocolate mb-4">The Collection</h3>
-        <div class="w-px h-12 md:h-16 bg-gold/30 mx-auto mb-4"></div>
+      <div class="text-center mb-16 md:mb-24 animate-fade-up delay-300">
+        <h3 class="font-display text-4xl md:text-5xl text-chocolate mb-4 md:mb-6">
+          The Collection
+        </h3>
+        <div class="w-px h-12 md:h-16 bg-gold/30 mx-auto mb-4 md:mb-6"></div>
         <p class="text-chocolate/60 italic font-light text-base md:text-lg">
           Handcrafted daily. Limited to 250 donuts per day.
         </p>
       </div>
 
       <div id="menu-grid" class="space-y-24 md:space-y-32">
-        <!-- Filled by JS -->
+        <!-- Categories injected via JS -->
       </div>
     </div>
   </section>
-  <!-- ORDER SECTION -->
-<section id="order" class="bg-[#F4F2EE] py-20 md:py-32 border-t border-chocolate/5">
-  <div class="max-w-7xl mx-auto px-6 md:px-12">
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 md:gap-16">
 
-      <!-- FORM -->
-      <div class="lg:col-span-7 bg-white p-8 md:p-16 luxury-shadow">
-        <h3 class="font-display text-3xl md:text-4xl text-chocolate mb-10 md:mb-12">Your Details</h3>
-
-        <form id="order-form" class="space-y-8 md:space-y-10">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
-            <div class="space-y-2">
-              <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Full Name</label>
-              <input type="text" name="name" required class="w-full p-3 md:p-4 text-lg text-chocolate font-serif">
+  <!-- Order -->
+  <section
+    id="order"
+    class="bg-[#F4F2EE] py-20 md:py-32 border-t border-chocolate/5"
+  >
+    <div class="max-w-7xl mx-auto px-6 md:px-12">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 md:gap-16">
+        <div class="lg:col-span-7 bg-white p-8 md:p-16 luxury-shadow">
+          <h3 class="font-display text-3xl md:text-4xl text-chocolate mb-10 md:mb-12">
+            Your Details
+          </h3>
+          <form id="order-form" class="space-y-8 md:space-y-10">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
+              <div class="space-y-2">
+                <label
+                  class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40"
+                  >Full Name</label
+                >
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  class="w-full p-3 md:p-4 text-lg text-chocolate font-serif placeholder-chocolate/30"
+                />
+              </div>
+              <div class="space-y-2">
+                <label
+                  class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40"
+                  >Phone Number</label
+                >
+                <input
+                  type="tel"
+                  name="phone"
+                  required
+                  class="w-full p-3 md:p-4 text-lg text-chocolate font-serif placeholder-chocolate/30"
+                />
+              </div>
             </div>
 
             <div class="space-y-2">
-              <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Phone Number</label>
-              <input type="tel" name="phone" required class="w-full p-3 md:p-4 text-lg text-chocolate font-serif">
+              <label
+                class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40"
+                >Email Address</label
+              >
+              <input
+                type="email"
+                name="email"
+                required
+                class="w-full p-3 md:p-4 text-lg text-chocolate font-serif placeholder-chocolate/30"
+              />
             </div>
-          </div>
 
-          <div class="space-y-2">
-            <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Email Address</label>
-            <input type="email" name="email" required class="w-full p-3 md:p-4 text-lg text-chocolate font-serif">
-          </div>
-
-          <!-- PICKUP BOX -->
-          <div class="bg-cream p-6 md:p-8 flex items-center justify-between border border-chocolate/5">
-            <div>
-              <label class="block text-[10px] uppercase tracking-[0.2em] text-chocolate/40 mb-2">Order Type</label>
-              <div class="text-lg md:text-xl text-chocolate font-display">Store Pickup Only</div>
+            <div
+              class="bg-cream p-6 md:p-8 flex items-center justify-between border border-chocolate/5"
+            >
+              <div>
+                <label
+                  class="block text-[10px] uppercase tracking-[0.2em] text-chocolate/40 mb-2"
+                  >Order Type</label
+                >
+                <div class="text-lg md:text-xl text-chocolate font-display">
+                  Store Pickup Only
+                </div>
+              </div>
+              <div
+                class="text-right text-xs md:text-sm text-chocolate/40 italic leading-relaxed"
+              >
+                513 Albany Ave,<br />Brooklyn NY
+              </div>
+              <input type="hidden" name="type" value="Pickup" />
             </div>
-            <div class="text-right text-xs md:text-sm text-chocolate/40 italic leading-relaxed">
-              513 Albany Ave,<br>Brooklyn NY
-            </div>
-            <input type="hidden" name="type" value="Pickup">
-          </div>
 
-          <!-- DATE + TIME -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
+              <div class="space-y-2">
+                <label
+                  class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40"
+                  >Date (Dec 15-22)</label
+                >
+                <input
+                  type="date"
+                  name="date"
+                  min="2025-12-15"
+                  max="2025-12-22"
+                  required
+                  class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent"
+                />
+              </div>
+              <div class="space-y-2">
+                <label
+                  class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40"
+                  >Pickup Time</label
+                >
+                <select
+                  name="time"
+                  class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent appearance-none"
+                >
+                  <option>10:00 - 11:00</option>
+                  <option>11:00 - 12:00</option>
+                  <option>12:00 - 13:00</option>
+                  <option>13:00 - 14:00</option>
+                  <option>14:00 - 15:00</option>
+                  <option>15:00 - 16:00</option>
+                </select>
+              </div>
+            </div>
+
             <div class="space-y-2">
-              <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Date (Dec 15-22)</label>
-              <input type="date" name="date" min="2025-12-15" max="2025-12-22" required 
-                     class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent">
+              <label
+                class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40"
+                >Notes / Requests</label
+              >
+              <textarea
+                name="notes"
+                rows="2"
+                class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent"
+              ></textarea>
+            </div>
+          </form>
+        </div>
+
+        <div class="lg:col-span-5 relative">
+          <div
+            class="bg-[#2A221E] text-[#F9F8F6] p-8 md:p-12 sticky top-28 luxury-shadow"
+          >
+            <h3 class="font-display text-2xl md:text-3xl mb-2">
+              Order Summary
+            </h3>
+            <p class="text-white/30 italic mb-8 md:mb-10 font-light text-sm">
+              Review your selection
+            </p>
+
+            <div
+              id="cart-items"
+              class="space-y-4 mb-8 md:mb-10 max-h-[300px] md:max-h-[400px] overflow-y-auto pr-2 border-t border-white/10 pt-6"
+            >
+              <div
+                class="text-center py-12 opacity-20 font-serif text-lg italic"
+              >
+                Your box is empty.
+              </div>
             </div>
 
-            <div class="space-y-2">
-              <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Pickup Time</label>
-              <select name="time" class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent appearance-none">
-                <option>10:00 - 11:00</option>
-                <option>11:00 - 12:00</option>
-                <option>12:00 - 13:00</option>
-                <option>13:00 - 14:00</option>
-                <option>14:00 - 15:00</option>
-                <option>15:00 - 16:00</option>
-              </select>
+            <div class="border-t border-white/10 pt-8 space-y-2 mb-10 md:mb-12">
+              <div class="flex justify-between items-end">
+                <span class="font-display text-3xl">Total</span>
+                <span
+                  id="total-price"
+                  class="font-display text-3xl md:text-4xl text-gold"
+                  >$0.00</span
+                >
+              </div>
             </div>
-          </div>
 
-          <div class="space-y-2">
-            <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Notes / Requests</label>
-            <textarea name="notes" rows="2" class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent"></textarea>
-          </div>
-        </form>
-      </div>
-
-      <!-- SUMMARY -->
-      <div class="lg:col-span-5 relative">
-        <div class="bg-[#2A221E] text-[#F9F8F6] p-8 md:p-12 sticky top-28 luxury-shadow">
-          <h3 class="font-display text-2xl md:text-3xl mb-2">Order Summary</h3>
-          <p class="text-white/30 italic mb-8 md:mb-10 font-light text-sm">Review your selection</p>
-
-          <!-- CART ITEMS -->
-          <div id="cart-items" class="space-y-4 mb-8 md:mb-10 max-h-[300px] md:max-h-[400px] overflow-y-auto pr-2">
-            <div class="text-center py-12 opacity-20 font-serif text-lg italic">Your box is empty.</div>
-          </div>
-
-          <!-- TOTAL -->
-          <div class="border-t border-white/10 pt-8 space-y-2 mb-10 md:mb-12">
-            <div class="flex justify-between items-end">
-              <span class="font-display text-3xl">Total</span>
-              <span id="total-price" class="font-display text-3xl md:text-4xl text-gold">$0.00</span>
+            <div
+              id="card-container"
+              class="mb-6 p-4 bg-white/5 border border-white/10 rounded text-xs text-white/40 italic text-center"
+            >
+              You will be redirected to a secure Square checkout page to
+              complete your payment.
             </div>
-          </div>
 
-          <!-- PAY BUTTON -->
-          <button id="btn-pay"
-                  onclick="processPayment()"
-                  disabled
-                  class="w-full bg-white text-chocolate py-4 md:py-5 px-6 text-xs uppercase tracking-[0.25em] 
-                         hover:bg-gold transition-all duration-500 disabled:opacity-50 flex items-center justify-center gap-4">
-            <span>Proceed to Payment</span>
-            <i class="fa-solid fa-arrow-right"></i>
-          </button>
+            <button
+              id="btn-pay"
+              onclick="processPayment()"
+              disabled
+              class="w-full bg-white text-chocolate py-4 md:py-5 px-6 text-xs uppercase tracking-[0.25em] hover:bg-gold transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 md:gap-4 group"
+            >
+              <span>Proceed to Payment</span>
+              <i
+                class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"
+              ></i>
+            </button>
 
-          <div class="mt-6 text-center">
-            <p class="text-[10px] text-white/20 uppercase tracking-widest">Secure Payment via Square</p>
+            <div class="mt-6 text-center">
+              <p class="text-[10px] text-white/20 uppercase tracking-widest">
+                Secure Payment via Square
+              </p>
+            </div>
+            <div
+              id="error-msg"
+              class="text-red-300 text-xs mt-4 text-center hidden font-sans tracking-wide"
+            ></div>
           </div>
         </div>
       </div>
-
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- FOOTER (1:1 כפי שנתת לי) -->
-<section class="bg-white py-20 px-6 border-t border-chocolate/5">
-  <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-16 text-center">
-
-    <div class="space-y-4">
-      <div class="text-chocolate font-display text-xl md:text-2xl">Hanukkah 2025</div>
-      <div class="w-8 h-px bg-gold/50 mx-auto"></div>
-      <p class="text-chocolate/60 italic font-light">December 15th - 22nd</p>
-      <p class="text-chocolate/60 italic font-light">Open Every Day</p>
-    </div>
-
-    <div class="space-y-4">
-      <div class="text-chocolate font-display text-2xl">Opening Hours</div>
-      <p class="text-chocolate/70 italic">10:00 AM - 4:00 PM</p>
-      <p class="text-chocolate/50 text-sm tracking-widest uppercase">Pickup Only</p>
-    </div>
-
-    <div class="space-y-4">
-      <div class="text-chocolate font-display text-2xl">Visit Us</div>
-      <div class="w-8 h-px bg-gold/50 mx-auto"></div>
-      <a href="https://maps.google.com/?q=513+Albany+Ave,+Brooklyn+NY+11203"
-         target="_blank"
-         class="block text-chocolate/60 hover:text-gold transition-colors italic underline underline-offset-4">
-        513 Albany Ave, Brooklyn
-      </a>
-      <a href="tel:347-365-5177"
-         class="block text-chocolate/60 hover:text-gold transition-colors font-light">
-        347-365-5177
-      </a>
-    </div>
-
-  </div>
-</section>
-
-<footer class="bg-chocolate text-cream/40 py-10 border-t border-white/5">
-  <div class="max-w-7xl mx-auto px-6 text-center">
-    <div class="mb-8">
-      <span class="font-display text-3xl tracking-[0.15em] text-white/90">RICOTTA</span>
-    </div>
-    <div class="flex justify-center gap-8 mb-8">
-      <a href="https://www.instagram.com/ricottacoffee"
-         target="_blank"
-         class="hover:text-gold text-white/60 transition-colors">
-        <i class="fa-brands fa-instagram text-2xl"></i>
-      </a>
-    </div>
-    <p class="text-xs tracking-widest uppercase">© 2025 RICOTTA Boutique Donuts.</p>
-  </div>
-</footer>
-<script>
-// =============================
-// CART + MENU DATA
-// =============================
-const TAX_RATE = 0.08875; // 8.875% NYC
-let cart = JSON.parse(sessionStorage.getItem("ricotta-cart") || "{}");
-
-const menuData = {
-  premium: {
-    title: "Premium Collection ($10)",
-    items: [
-      { id: 1, name: "Dubai Donut", desc: "Rich pistachio cream, crunchy knafeh & crushed pistachios.", price: 10, img: "https://i.postimg.cc/g01vD2h1/IMG_5154.avif" },
-      { id: 2, name: "Crème Brûlée", desc: "Crackly caramel glaze filled with rich, silky cream.", price: 10, img: "https://i.postimg.cc/fTvfNZ43/IMG_5152.avif" },
-      { id: 3, name: "Lemon Meringue", desc: "Tangy lemon cream topped with fluffy, torched meringue.", price: 10, img: "https://i.postimg.cc/mrKQwgMW/IMG_5155.avif" },
-      { id: 4, name: "Blueberry Cheesecake", desc: "Rich cream cheese, crumble & blueberry jam.", price: 10, img: "https://i.postimg.cc/QNQpQsd4/IMG_5158.avif" }
-    ]
-  }
-};
-
-// =============================
-// RENDER MENU
-// =============================
-document.addEventListener("DOMContentLoaded", () => {
-  renderMenu();
-  renderCart();
-});
-
-// Build Menu Cards
-function renderMenu() {
-  const container = document.getElementById("menu-grid");
-  container.innerHTML = "";
-
-  for (const [catKey, cat] of Object.entries(menuData)) {
-    const section = document.createElement("div");
-    section.className = "space-y-12 md:space-y-16";
-
-    const title = `
-      <h3 class="text-3xl md:text-4xl font-display text-chocolate mb-10 text-center">
-        ${cat.title}
-      </h3>
-    `;
-
-    const items = cat.items.map(item => `
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16">
-        <div>
-          <img src="${item.img}" class="w-full h-80 object-cover">
+  <!-- Footer -->
+  <section class="bg-white py-20 px-6 border-t border-chocolate/5">
+    <div
+      class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-16 text-center"
+    >
+      <div class="space-y-4">
+        <div class="text-chocolate font-display text-xl md:text-2xl">
+          Hanukkah 2025
         </div>
-        <div class="flex flex-col justify-center space-y-4">
-          <h4 class="text-2xl font-display text-chocolate">${item.name}</h4>
-          <p class="text-chocolate/60 italic">${item.desc}</p>
-          <button onclick="addToCart(${item.id})"
-            class="border border-chocolate/20 px-8 py-3 text-xs uppercase tracking-[0.25em] hover:bg-chocolate hover:text-white transition-all">
-            Add to Box – $${item.price}
-          </button>
-        </div>
+        <div class="w-8 h-px bg-gold/50 mx-auto"></div>
+        <p class="text-chocolate/60 italic font-light">
+          December 15th - 22nd
+        </p>
+        <p class="text-chocolate/60 italic font-light">Open Every Day</p>
       </div>
-    `).join("");
-
-    section.innerHTML = title + items;
-    container.appendChild(section);
-  }
-}
-
-// =============================
-// CART FUNCTIONS
-// =============================
-function addToCart(id) {
-  const item = Object.values(menuData.premium.items).find(i => i.id === id);
-  if (!item) return;
-
-  if (!cart[id]) cart[id] = { ...item, qty: 0 };
-  cart[id].qty++;
-
-  saveCart();
-  renderCart();
-}
-
-function removeFromCart(id) {
-  if (cart[id]) {
-    cart[id].qty--;
-    if (cart[id].qty <= 0) delete cart[id];
-  }
-  saveCart();
-  renderCart();
-}
-
-function saveCart() {
-  sessionStorage.setItem("ricotta-cart", JSON.stringify(cart));
-}
-
-// =============================
-// RENDER CART UI
-// =============================
-function renderCart() {
-  const container = document.getElementById("cart-items");
-  container.innerHTML = "";
-
-  const items = Object.values(cart);
-  if (!items.length) {
-    container.innerHTML = `<div class="text-center py-12 opacity-20 font-serif text-lg italic">Your box is empty.</div>`;
-    document.getElementById("btn-pay").disabled = true;
-    updateTotal();
-    return;
-  }
-
-  document.getElementById("btn-pay").disabled = false;
-
-  items.forEach(item => {
-    const row = document.createElement("div");
-    row.className = "flex justify-between items-center border-b border-white/10 pb-3";
-
-    row.innerHTML = `
-      <div>
-        <div class="font-display text-lg">${item.name}</div>
-        <div class="text-white/30 text-sm">$${item.price} each</div>
+      <div class="space-y-4">
+        <div class="text-chocolate font-display text-2xl">Opening Hours</div>
+        <p class="text-chocolate/70 italic">10:00 AM - 4:00 PM</p>
+        <p class="text-chocolate/50 text-sm tracking-widest uppercase">
+          Pickup Only
+        </p>
       </div>
-
-      <div class="flex items-center gap-3">
-        <button onclick="removeFromCart(${item.id})"
-          class="px-3 py-1 bg-white/10 text-white">−</button>
-        <span>${item.qty}</span>
-        <button onclick="addToCart(${item.id})"
-          class="px-3 py-1 bg-white/10 text-white">+</button>
+      <div class="space-y-4">
+        <div class="text-chocolate font-display text-2xl">Visit Us</div>
+        <div class="w-8 h-px bg-gold/50 mx-auto"></div>
+        <a
+          href="https://maps.google.com/?q=513+Albany+ave,+Brooklyn+NY+11203"
+          target="_blank"
+          class="block text-chocolate/60 hover:text-gold transition-colors italic underline decoration-1 decoration-chocolate/20 underline-offset-4"
+        >
+          513 Albany Ave, Brooklyn
+        </a>
+        <a
+          href="tel:347-365-5177"
+          class="block text-chocolate/60 hover:text-gold transition-colors font-light"
+        >
+          347-365-5177
+        </a>
       </div>
-    `;
+    </div>
+  </section>
 
-    container.appendChild(row);
-  });
+  <footer class="bg-chocolate text-cream/40 py-10 border-t border-white/5">
+    <div class="max-w-7xl mx-auto px-6 text-center">
+      <div class="mb-8">
+        <span class="font-display text-3xl tracking-[0.15em] text-white/90"
+          >RICOTTA</span
+        >
+      </div>
+      <div class="flex justify-center gap-8 mb-8">
+        <a
+          href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253"
+          target="_blank"
+          class="hover:text-gold text-white/60 transition-colors"
+          ><i class="fa-brands fa-instagram text-2xl"></i
+        ></a>
+      </div>
+      <p class="text-xs tracking-widest uppercase">
+        © 2025 RICOTTA Boutique Donuts.
+      </p>
+    </div>
+  </footer>
 
-  updateTotal();
-}
+  <script>
+    // ----- DATA -----
+    const menuData = {
+      premium: {
+        title: "Premium Collection ($10)",
+        items: [
+          {
+            id: 1,
+            name: "Dubai Donut",
+            desc: "Rich pistachio cream, crunchy knafeh & crushed pistachios.",
+            price: 10,
+            img: "https://i.postimg.cc/g01vD2h1/IMG_5154.avif"
+          },
+          {
+            id: 2,
+            name: "Crème Brûlée",
+            desc: "Crackly caramel glaze filled with rich, silky cream.",
+            price: 10,
+            img: "https://i.postimg.cc/fTvfNZ43/IMG_5152.avif"
+          },
+          {
+            id: 3,
+            name: "Lemon Meringue",
+            desc: "Tangy lemon cream topped with fluffy, torched meringue.",
+            price: 10,
+            img: "https://i.postimg.cc/mrKQwgMW/IMG_5155.avif"
+          },
+          {
+            id: 4,
+            name: "Blueberry Cheesecake",
+            desc: "Rich cream cheese, cheesecake crumble, and topped with real blueberry jam.",
+            price: 10,
+            img: "https://i.postimg.cc/QNQpQsd4/IMG_5158.avif"
+          }
+        ]
+      },
+      classic: {
+        title: "Classic Collection ($8)",
+        items: [
+          {
+            id: 5,
+            name: "Oreo Donut",
+            desc: "Smooth Oreo cream, white chocolate & crunchy crumbs.",
+            price: 8,
+            img: "https://i.postimg.cc/5tDw32zr/IMG_5153.avif"
+          },
+          {
+            id: 6,
+            name: "Almond Cream",
+            desc: "Rich almond cream topped with crunchy roasted almonds.",
+            price: 8,
+            img: "https://i.postimg.cc/fTvfNZ43/IMG_5152.avif"
+          }
+        ]
+      }
+    };
 
-// =============================
-// CALCULATE TOTAL + TAX
-// =============================
-function updateTotal() {
-  const items = Object.values(cart);
-  let subtotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);
-  let tax = subtotal * TAX_RATE;
-  let total = subtotal + tax;
+    let cart = {};
 
-  document.getElementById("total-price").innerText = `$${total.toFixed(2)}`;
-}
+    document.addEventListener("DOMContentLoaded", function () {
+      renderMenu();
 
-// =============================
-// PAYMENT PROCESS
-// =============================
-async function processPayment() {
-  const btn = document.getElementById("btn-pay");
-  const items = Object.values(cart);
+      const d = document.querySelector('input[name="date"]');
+      if (d) {
+        d.min = "2025-12-15";
+        d.max = "2025-12-22";
+        d.value = "2025-12-15";
+      }
 
-  if (!items.length) return;
-
-  const form = new FormData(document.getElementById("order-form"));
-  let date = form.get("date");
-  let time = form.get("time");
-  let name = form.get("name");
-  let phone = form.get("phone");
-  let email = form.get("email");
-  let notes = form.get("notes");
-
-  // BLOCK SHABBAT
-  const day = new Date(date).getDay(); // 6 = Saturday
-  if (day === 6) {
-    alert("We do not accept orders for Saturday. Please choose another day.");
-    return;
-  }
-
-  btn.innerHTML = `<div class="loader"></div>`;
-  btn.disabled = true;
-
-  const payload = {
-    cartItems: items.map(i => ({
-      name: i.name,
-      quantity: i.qty,
-      unitAmountCents: i.price * 100
-    })),
-    redirectUrlBase: window.location.origin,
-    currency: "USD",
-    pickupDate: date,
-    pickupTime: time,
-    customerName: name,
-    customerPhone: phone,
-    customerEmail: email,
-    notes
-  };
-
-  try {
-    const res = await fetch("/.netlify/functions/create-checkout-link", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      updatePayButtonState();
     });
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.error || "Unexpected error.");
-      btn.innerHTML = "Proceed to Payment";
-      btn.disabled = false;
-      return;
+    function scrollToMenu() {
+      const el = document.getElementById("menu");
+      if (el) el.scrollIntoView({ behavior: "smooth" });
     }
 
-    // Redirect to Square Checkout
-    window.location.href = data.payment_link.url;
+    // ----- MENU & CART -----
+    function renderMenu() {
+      const container = document.getElementById("menu-grid");
+      if (!container) return;
 
-  } catch (err) {
-    alert("Unexpected error.");
-  }
-}
-</script>
+      container.innerHTML = "";
+
+      for (const key in menuData) {
+        if (!menuData.hasOwnProperty(key)) continue;
+        const cat = menuData[key];
+
+        const section = document.createElement("div");
+
+        const gridClass =
+          cat.items.length <= 2
+            ? "flex flex-wrap justify-center gap-10 md:gap-16"
+            : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-12";
+
+        let itemsHtml = "";
+        for (let idx = 0; idx < cat.items.length; idx++) {
+          const i = cat.items[idx];
+          const qty = cart[i.id] ? cart[i.id].qty : 0;
+
+          itemsHtml +=
+            '<div class="group flex flex-col items-center text-center max-w-[300px] w-full">' +
+            '  <div class="w-64 h-64 mb-8 relative cursor-pointer transition-transform duration-500 group-hover:-translate-y-2" onclick="updateCart(' +
+            i.id +
+            ', 1)">' +
+            '    <img src="' +
+            i.img +
+            '" class="w-full h-full object-cover rounded-full shadow-xl group-hover:shadow-2xl transition-shadow duration-500">' +
+            '    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 rounded-full transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">' +
+            '      <div class="bg-white text-chocolate w-12 h-12 rounded-full flex items-center justify-center shadow-lg transform scale-0 group-hover:scale-100 transition-transform duration-300">' +
+            '        <i class="fa-solid fa-plus text-lg"></i>' +
+            "      </div>" +
+            "    </div>" +
+            "  </div>" +
+            '  <h5 class="font-display text-2xl text-chocolate mb-2 tracking-wide">' +
+            i.name +
+            "</h5>" +
+            '  <p class="font-serif text-base text-chocolate/60 mb-4 px-2 leading-relaxed min-h-[3rem]">' +
+            i.desc +
+            "</p>" +
+            '  <p class="font-serif text-lg text-gold-dark font-bold tracking-widest mb-6">$' +
+            i.price.toFixed(2) +
+            "</p>" +
+            '  <div class="flex items-center gap-6 opacity-100">' +
+            '    <button onclick="updateCart(' +
+            i.id +
+            ', -1)" class="w-10 h-10 rounded-full border border-chocolate/10 text-chocolate hover:bg-chocolate hover:text-white transition-all flex items-center justify-center hover:border-chocolate">' +
+            '      <i class="fa-solid fa-minus text-xs"></i>' +
+            "    </button>" +
+            '    <span id="qty-' +
+            i.id +
+            '" class="font-display text-2xl w-6 text-chocolate">' +
+            qty +
+            "</span>" +
+            '    <button onclick="updateCart(' +
+            i.id +
+            ', 1)" class="w-10 h-10 rounded-full border border-chocolate/10 text-chocolate hover:bg-chocolate hover:text-white transition-all flex items-center justify-center hover:border-chocolate">' +
+            '      <i class="fa-solid fa-plus text-xs"></i>' +
+            "    </button>" +
+            "  </div>" +
+            "</div>";
+        }
+
+        section.innerHTML =
+          '<div class="text-center mb-16 md:mb-24">' +
+          '  <h4 class="font-display text-3xl md:text-4xl text-chocolate mb-3 tracking-wide">' +
+          cat.title +
+          "</h4>" +
+          '  <div class="w-8 h-px bg-chocolate/10 mx-auto"></div>' +
+          "</div>" +
+          '<div class="' +
+          gridClass +
+          ' px-4 w-full">' +
+          itemsHtml +
+          "</div>";
+
+        container.appendChild(section);
+      }
+    }
+
+    function findItemById(id) {
+      for (const key in menuData) {
+        if (!menuData.hasOwnProperty(key)) continue;
+        const cat = menuData[key];
+        for (let i = 0; i < cat.items.length; i++) {
+          if (cat.items[i].id === id) {
+            return cat.items[i];
+          }
+        }
+      }
+      return null;
+    }
+
+    function updateCart(id, delta) {
+      const item = findItemById(id);
+      if (!item) return;
+
+      if (!cart[id]) {
+        cart[id] = { item: item, qty: 0 };
+      }
+
+      cart[id].qty += delta;
+      if (cart[id].qty <= 0) {
+        delete cart[id];
+      }
+
+      renderCart();
+      renderMenu();
+    }
+
+    function getCartEntries() {
+      const entries = [];
+      for (const id in cart) {
+        if (!cart.hasOwnProperty(id)) continue;
+        entries.push(cart[id]);
+      }
+      return entries;
+    }
+
+    function getCartTotal() {
+      const entries = getCartEntries();
+      let sum = 0;
+      for (let i = 0; i < entries.length; i++) {
+        sum += entries[i].item.price * entries[i].qty;
+      }
+      return sum;
+    }
+
+    function renderCart() {
+      const container = document.getElementById("cart-items");
+      const totalEl = document.getElementById("total-price");
+      if (!container || !totalEl) return;
+
+      const entries = getCartEntries();
+
+      if (!entries.length) {
+        container.innerHTML =
+          '<div class="text-center py-12 opacity-20 font-serif text-lg italic">Your box is empty.</div>';
+      } else {
+        let html = "";
+        for (let i = 0; i < entries.length; i++) {
+          const entry = entries[i];
+          html +=
+            '<div class="flex items-center justify-between text-sm md:text-base border-b border-white/10 pb-3 last:border-b-0 last:pb-0">' +
+            "  <div>" +
+            '    <div class="font-display text-cream">' +
+            entry.item.name +
+            "</div>" +
+            '    <div class="text-white/40 text-xs md:text-[11px]">' +
+            "      x" +
+            entry.qty +
+            " • $" +
+            entry.item.price.toFixed(2) +
+            " each" +
+            "    </div>" +
+            "  </div>" +
+            '  <div class="font-display text-gold">$' +
+            (entry.item.price * entry.qty).toFixed(2) +
+            "</div>" +
+            "</div>";
+        }
+        container.innerHTML = html;
+      }
+
+      const total = getCartTotal();
+      totalEl.textContent = "$" + total.toFixed(2);
+      updatePayButtonState();
+    }
+
+    function updatePayButtonState() {
+      const btn = document.getElementById("btn-pay");
+      if (!btn) return;
+      const total = getCartTotal();
+      btn.disabled = total <= 0;
+    }
+
+    // ----- PAYMENT: REDIRECT TO SQUARE CHECKOUT -----
+    async function processPayment() {
+      const errorEl = document.getElementById("error-msg");
+      const btn = document.getElementById("btn-pay");
+      const form = document.getElementById("order-form");
+
+      if (errorEl) {
+        errorEl.classList.add("hidden");
+        errorEl.textContent = "";
+        errorEl.classList.remove("text-emerald-300");
+        errorEl.classList.add("text-red-300");
+      }
+
+      if (!form.reportValidity()) return;
+
+      const total = getCartTotal();
+      if (total <= 0) {
+        if (errorEl) {
+          errorEl.textContent = "Please add at least one donut to your box.";
+          errorEl.classList.remove("hidden");
+        }
+        return;
+      }
+
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML =
+        '<div class="loader"></div><span class="text-xs tracking-[0.25em]">Redirecting...</span>';
+
+      try {
+        const formData = new FormData(form);
+        const pickupDate = formData.get("date");
+        const pickupTime = formData.get("time");
+        const customerName = formData.get("name");
+        const customerPhone = formData.get("phone");
+        const customerEmail = formData.get("email");
+
+        const entries = getCartEntries();
+        const cartItems = [];
+        for (let i = 0; i < entries.length; i++) {
+          const e = entries[i];
+          cartItems.push({
+            name: e.item.name,
+            quantity: e.qty,
+            unitAmountCents: Math.round(e.item.price * 100)
+          });
+        }
+
+        const idempotencyKey =
+          "ricotta-checkout-" +
+          Date.now() +
+          "-" +
+          Math.random().toString(36).substring(2, 10);
+
+        const response = await fetch(
+          "/.netlify/functions/create-checkout-link",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              cartItems: cartItems,
+              currency: "USD",
+              redirectUrlBase: window.location.origin,
+              pickupDate: pickupDate,
+              pickupTime: pickupTime,
+              customerName: customerName,
+              customerPhone: customerPhone,
+              customerEmail: customerEmail,
+              idempotencyKey: idempotencyKey
+            })
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || data.error || data.errors) {
+          console.error("Create checkout link failed:", data);
+          const msg =
+            (data.errors &&
+              data.errors[0] &&
+              (data.errors[0].detail || data.errors[0].message)) ||
+            data.error ||
+            "Could not start checkout. Please try again.";
+          if (errorEl) {
+            errorEl.textContent = msg;
+            errorEl.classList.remove("hidden");
+          }
+          btn.innerHTML = originalHtml;
+          btn.disabled = false;
+          return;
+        }
+
+        const paymentLink =
+          (data.payment_link && data.payment_link.url) || data.url;
+
+        if (!paymentLink) {
+          throw new Error("Missing checkout URL from Square.");
+        }
+
+        // Redirect to Square's hosted checkout page
+        window.location.href = paymentLink;
+      } catch (e) {
+        console.error("Checkout error:", e);
+        if (errorEl) {
+          errorEl.textContent =
+            e.message || "Unexpected error. Please try again.";
+          errorEl.classList.remove("hidden");
+        }
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
