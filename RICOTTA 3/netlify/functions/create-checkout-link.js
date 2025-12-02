@@ -77,11 +77,12 @@ exports.handler = async (event) => {
     const locationId = locationsRes.body.locations[0].id;
 
     // Build order (no fulfillment!)
-    const orderNote =
-      `Pickup ${pickupDate} (${pickupWindow.start.slice(11,16)}–${pickupWindow.end.slice(11,16)})` +
-      ` | Name: ${customerName}` +
-      ` | Phone: ${customerPhone}` +
-      ` | Email: ${customerEmail}`;
+const orderNote =
+  `Pickup Date: ${pickupDate}\n` +
+  `Pickup Window: ${pickupTime}\n` +
+  `Customer: ${customerName}\n` +
+  `Phone: ${customerPhone}\n` +
+  `Email: ${customerEmail}`;
 
     const lineItems = cartItems.map(i => ({
       name: i.name,
@@ -115,3 +116,4 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: err.message };
   }
 };
+
