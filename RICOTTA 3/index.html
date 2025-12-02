@@ -692,19 +692,34 @@
         const formData = new FormData(document.getElementById("order-form"));
 
         const payload = {
-          cartItems: items.map((i) => ({
-            name: i.name,
-            quantity: i.qty,
-            unitAmountCents: i.price * 100
-          })),
-          currency: "USD",
-          redirectUrlBase: window.location.origin,
-          pickupDate: formData.get("date"),
-          pickupTime: formData.get("time").replace(" - ", " to "),
-          customerName: formData.get("name"),
-          customerPhone: formData.get("phone"),
-          customerEmail: formData.get("email")
-        };
+  cartItems: items.map((i) => ({
+    name: i.name,
+    quantity: i.qty,
+    unitAmountCents: i.price * 100
+  })),
+  currency: "USD",
+  redirectUrlBase: window.location.origin,
+  pickupDate: formData.get("date"),
+  pickupTime: formData.get("time")?.trim(),
+  customerName: formData.get("name"),
+  customerPhone: formData.get("phone"),
+  customerEmail: formData.get("email"),
+  notes: formData.get("notes") || ""
+};const payload = {
+  cartItems: items.map((i) => ({
+    name: i.name,
+    quantity: i.qty,
+    unitAmountCents: i.price * 100
+  })),
+  currency: "USD",
+  redirectUrlBase: window.location.origin,
+  pickupDate: formData.get("date"),
+  pickupTime: formData.get("time")?.trim(),
+  customerName: formData.get("name"),
+  customerPhone: formData.get("phone"),
+  customerEmail: formData.get("email"),
+  notes: formData.get("notes") || ""
+};
 
         const res = await fetch("/.netlify/functions/create-checkout-link", {
           method: "POST",
@@ -735,3 +750,4 @@
 
 </body>
 </html>
+
