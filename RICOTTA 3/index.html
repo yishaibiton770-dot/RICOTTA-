@@ -652,6 +652,56 @@
         d.max = "2025-12-22";
         if (!d.value) d.value = "2025-12-15";
       }
+
+      // SOLD OUT banner element (נסתר כברירת מחדל, לא שובר עיצוב)
+      const soldOutBanner = document.createElement("div");
+      soldOutBanner.id = "soldout-banner";
+      soldOutBanner.className =
+        "text-center text-red-600 text-sm md:text-base font-serif italic mt-4 hidden";
+      soldOutBanner.textContent =
+        "Sold out for today — please choose another date.";
+      const orderSection = document.querySelector("#order");
+      if (orderSection) {
+        orderSection.prepend(soldOutBanner);
+      }
+
+      const dateInput = d;
+
+      async function checkDayAvailability(date) {
+        try {
+          const res = await fetch("/.netlify/functions/create-checkout-link", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              availabilityCheck: true,
+              pickupDate: date
+            })
+          });
+
+          const data = await res.json().catch(() => null);
+          return data && typeof data.remaining === "number"
+            ? data.remaining
+            : null;
+        } catch (e) {
+          console.error("Availability check failed", e);
+          return null;
+        }
+      }
+
+      async function updateSoldOutStatus() {
+        if (!dateInput || !dateInput.value) return;
+        const remaining = await checkDayAvailability(dateInput.value);
+        if (remaining === 0) {
+          soldOutBanner.classList.remove("hidden");
+        } else {
+          soldOutBanner.classList.add("hidden");
+        }
+      }
+
+      if (dateInput) {
+        dateInput.addEventListener("change", updateSoldOutStatus);
+        updateSoldOutStatus();
+      }
     });
 
     window.addEventListener('load', () => {
@@ -744,8 +794,3 @@
 
 </body>
 </html>
-
-
-
-
-
