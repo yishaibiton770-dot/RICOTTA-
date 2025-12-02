@@ -321,3 +321,214 @@
     <p class="text-xs tracking-widest uppercase">© 2025 RICOTTA Boutique Donuts.</p>
   </div>
 </footer>
+<script>
+// =============================
+// CART + MENU DATA
+// =============================
+const TAX_RATE = 0.08875; // 8.875% NYC
+let cart = JSON.parse(sessionStorage.getItem("ricotta-cart") || "{}");
+
+const menuData = {
+  premium: {
+    title: "Premium Collection ($10)",
+    items: [
+      { id: 1, name: "Dubai Donut", desc: "Rich pistachio cream, crunchy knafeh & crushed pistachios.", price: 10, img: "https://i.postimg.cc/g01vD2h1/IMG_5154.avif" },
+      { id: 2, name: "Crème Brûlée", desc: "Crackly caramel glaze filled with rich, silky cream.", price: 10, img: "https://i.postimg.cc/fTvfNZ43/IMG_5152.avif" },
+      { id: 3, name: "Lemon Meringue", desc: "Tangy lemon cream topped with fluffy, torched meringue.", price: 10, img: "https://i.postimg.cc/mrKQwgMW/IMG_5155.avif" },
+      { id: 4, name: "Blueberry Cheesecake", desc: "Rich cream cheese, crumble & blueberry jam.", price: 10, img: "https://i.postimg.cc/QNQpQsd4/IMG_5158.avif" }
+    ]
+  }
+};
+
+// =============================
+// RENDER MENU
+// =============================
+document.addEventListener("DOMContentLoaded", () => {
+  renderMenu();
+  renderCart();
+});
+
+// Build Menu Cards
+function renderMenu() {
+  const container = document.getElementById("menu-grid");
+  container.innerHTML = "";
+
+  for (const [catKey, cat] of Object.entries(menuData)) {
+    const section = document.createElement("div");
+    section.className = "space-y-12 md:space-y-16";
+
+    const title = `
+      <h3 class="text-3xl md:text-4xl font-display text-chocolate mb-10 text-center">
+        ${cat.title}
+      </h3>
+    `;
+
+    const items = cat.items.map(item => `
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16">
+        <div>
+          <img src="${item.img}" class="w-full h-80 object-cover">
+        </div>
+        <div class="flex flex-col justify-center space-y-4">
+          <h4 class="text-2xl font-display text-chocolate">${item.name}</h4>
+          <p class="text-chocolate/60 italic">${item.desc}</p>
+          <button onclick="addToCart(${item.id})"
+            class="border border-chocolate/20 px-8 py-3 text-xs uppercase tracking-[0.25em] hover:bg-chocolate hover:text-white transition-all">
+            Add to Box – $${item.price}
+          </button>
+        </div>
+      </div>
+    `).join("");
+
+    section.innerHTML = title + items;
+    container.appendChild(section);
+  }
+}
+
+// =============================
+// CART FUNCTIONS
+// =============================
+function addToCart(id) {
+  const item = Object.values(menuData.premium.items).find(i => i.id === id);
+  if (!item) return;
+
+  if (!cart[id]) cart[id] = { ...item, qty: 0 };
+  cart[id].qty++;
+
+  saveCart();
+  renderCart();
+}
+
+function removeFromCart(id) {
+  if (cart[id]) {
+    cart[id].qty--;
+    if (cart[id].qty <= 0) delete cart[id];
+  }
+  saveCart();
+  renderCart();
+}
+
+function saveCart() {
+  sessionStorage.setItem("ricotta-cart", JSON.stringify(cart));
+}
+
+// =============================
+// RENDER CART UI
+// =============================
+function renderCart() {
+  const container = document.getElementById("cart-items");
+  container.innerHTML = "";
+
+  const items = Object.values(cart);
+  if (!items.length) {
+    container.innerHTML = `<div class="text-center py-12 opacity-20 font-serif text-lg italic">Your box is empty.</div>`;
+    document.getElementById("btn-pay").disabled = true;
+    updateTotal();
+    return;
+  }
+
+  document.getElementById("btn-pay").disabled = false;
+
+  items.forEach(item => {
+    const row = document.createElement("div");
+    row.className = "flex justify-between items-center border-b border-white/10 pb-3";
+
+    row.innerHTML = `
+      <div>
+        <div class="font-display text-lg">${item.name}</div>
+        <div class="text-white/30 text-sm">$${item.price} each</div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button onclick="removeFromCart(${item.id})"
+          class="px-3 py-1 bg-white/10 text-white">−</button>
+        <span>${item.qty}</span>
+        <button onclick="addToCart(${item.id})"
+          class="px-3 py-1 bg-white/10 text-white">+</button>
+      </div>
+    `;
+
+    container.appendChild(row);
+  });
+
+  updateTotal();
+}
+
+// =============================
+// CALCULATE TOTAL + TAX
+// =============================
+function updateTotal() {
+  const items = Object.values(cart);
+  let subtotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);
+  let tax = subtotal * TAX_RATE;
+  let total = subtotal + tax;
+
+  document.getElementById("total-price").innerText = `$${total.toFixed(2)}`;
+}
+
+// =============================
+// PAYMENT PROCESS
+// =============================
+async function processPayment() {
+  const btn = document.getElementById("btn-pay");
+  const items = Object.values(cart);
+
+  if (!items.length) return;
+
+  const form = new FormData(document.getElementById("order-form"));
+  let date = form.get("date");
+  let time = form.get("time");
+  let name = form.get("name");
+  let phone = form.get("phone");
+  let email = form.get("email");
+  let notes = form.get("notes");
+
+  // BLOCK SHABBAT
+  const day = new Date(date).getDay(); // 6 = Saturday
+  if (day === 6) {
+    alert("We do not accept orders for Saturday. Please choose another day.");
+    return;
+  }
+
+  btn.innerHTML = `<div class="loader"></div>`;
+  btn.disabled = true;
+
+  const payload = {
+    cartItems: items.map(i => ({
+      name: i.name,
+      quantity: i.qty,
+      unitAmountCents: i.price * 100
+    })),
+    redirectUrlBase: window.location.origin,
+    currency: "USD",
+    pickupDate: date,
+    pickupTime: time,
+    customerName: name,
+    customerPhone: phone,
+    customerEmail: email,
+    notes
+  };
+
+  try {
+    const res = await fetch("/.netlify/functions/create-checkout-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "Unexpected error.");
+      btn.innerHTML = "Proceed to Payment";
+      btn.disabled = false;
+      return;
+    }
+
+    // Redirect to Square Checkout
+    window.location.href = data.payment_link.url;
+
+  } catch (err) {
+    alert("Unexpected error.");
+  }
+}
+</script>
