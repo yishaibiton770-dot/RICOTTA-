@@ -1,22 +1,54 @@
 // netlify/functions/create-checkout-link.js
 
+const https = require("https");
 const crypto = require("crypto");
-const { Client, Environment } = require("square");
 
-const client = new Client({
-  accessToken: process.env.SQUARE_ACCESS_TOKEN,
-  environment:
-    process.env.SQUARE_ENVIRONMENT === "production"
-      ? Environment.Production
-      : Environment.Sandbox,
-});
+const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
+const LOCATION_ID = process.env.SQUARE_LOCATION_ID || ""; // שים פה ידנית אם אין env
 
-const LOCATION_ID = process.env.SQUARE_LOCATION_ID;
-const TAX_RATE = 0.08875; // 8.875%
+function callSquare(path, method, bodyObj) {
+  return new Promise((resolve, reject) => {
+    const body = bodyObj ? JSON.stringify(bodyObj) : null;
 
-exports.handler = async function (event) {
+    const options = {
+      hostname: "connect.squareup.com",
+      path,
+      method,
+      headers: {
+        "Square-Version": "2025-01-15",
+        Authorization: `Bearer ${SQUARE_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = "";
+      res.on("data", (chunk) => (data += chunk));
+      res.on("end", () => {
+        let json;
+        try {
+          json = JSON.parse(data);
+        } catch {
+          json = { raw: data };
+        }
+        resolve({ statusCode: res.statusCode, body: json });
+      });
+    });
+
+    req.on("error", reject);
+
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
+  }
+
+  if (!SQUARE_ACCESS_TOKEN) {
+    return { statusCode: 500, body: "Missing SQUARE_ACCESS_TOKEN" };
   }
 
   try {
@@ -27,7 +59,7 @@ exports.handler = async function (event) {
       currency = "USD",
       redirectUrlBase,
       pickupDate,
-      pickupWindow, // { start: "2025-12-18T10:00:00", end: "2025-12-18T11:00:00" }
+      pickupTime, // למשל "10:00 - 11:00"
       customerName,
       customerPhone,
       customerEmail,
@@ -42,16 +74,33 @@ exports.handler = async function (event) {
     }
 
     /* -----------------------------
-       סכומים
+       בניית תיאור איסוף
     ------------------------------ */
-    const subtotalCents = cartItems.reduce(
-      (sum, item) =>
-        sum + (Number(item.unitAmountCents) || 0) * (Number(item.quantity) || 0),
-      0
-    );
+    let windowText = "";
+    let pickupAt = null;
 
-    const taxCents = Math.round(subtotalCents * TAX_RATE);
-    const totalCents = subtotalCents + taxCents; // רק אם תרצה להשתמש בזה בעתיד
+    if (pickupDate && pickupTime) {
+      windowText = `${pickupDate} (${pickupTime})`;
+
+      // נחלץ את שעת ההתחלה (לדוגמה "10:00")
+      const fromMatch = pickupTime.match(/^(\d{2}:\d{2})/);
+      if (fromMatch) {
+        const from = fromMatch[1]; // HH:MM
+        // אזור זמן ניו יורק –5 שעות
+        pickupAt = `${pickupDate}T${from}:00-05:00`;
+      }
+    } else if (pickupDate) {
+      windowText = pickupDate;
+    }
+
+    const infoParts = [
+      customerName ? `Name: ${customerName}` : "",
+      customerPhone ? `Phone: ${customerPhone}` : "",
+      customerEmail ? `Email: ${customerEmail}` : "",
+      notes ? `Notes: ${notes}` : "",
+    ]
+      .filter(Boolean)
+      .join(" | ");
 
     /* -----------------------------
        שורות מוצרים
@@ -65,94 +114,82 @@ exports.handler = async function (event) {
       },
     }));
 
-    // נבנה טקסט יפה לשורת ה-Pickup
-    let pickupLabel = "";
-    if (pickupWindow && pickupWindow.start && pickupWindow.end) {
-      const day = pickupWindow.start.slice(0, 10); // YYYY-MM-DD
-      const from = pickupWindow.start.slice(11, 16); // HH:MM
-      const to = pickupWindow.end.slice(11, 16); // HH:MM
-      pickupLabel = `${day} ${from}-${to}`;
-    } else if (pickupDate) {
-      pickupLabel = pickupDate;
+    // שורת INFO ב־$0 שתופיע על הטיקט הקטן
+    if (windowText || infoParts) {
+      lineItems.push({
+        name: `Pickup ${windowText}`,
+        quantity: "1",
+        base_price_money: { amount: 0, currency },
+        note: infoParts,
+      });
     }
 
-    const pickupInfoLine = [
-      `Name: ${customerName || ""}`,
-      customerPhone ? `Phone: ${customerPhone}` : "",
-      customerEmail ? `Email: ${customerEmail}` : "",
-      notes ? `Notes: ${notes}` : "",
-    ]
-      .filter(Boolean)
-      .join(" | ");
-
-    // 👇 שורת INFO ב-$0 שתודפס על הטיקט
-    lineItems.push({
-      name: `Pickup ${pickupLabel}`,
-      quantity: "1",
-      base_price_money: {
-        amount: 0,
-        currency,
-      },
-      note: pickupInfoLine,
-    });
-
     /* -----------------------------
-       Fulfillment (איסוף)
+       Fulfillment (כדי שיראו בדשבורד)
     ------------------------------ */
-    const fulfillment =
-      pickupWindow && pickupWindow.start
-        ? [
-            {
-              type: "PICKUP",
-              state: "PROPOSED",
-              pickup_details: {
-                schedule_type: "SCHEDULED",
-                pickup_at: pickupWindow.start, // סקוור משתמשת בזה לזמן האיסוף
-                note: `Pickup ${pickupLabel} | ${pickupInfoLine}`,
-                recipient: {
-                  display_name: customerName,
-                  phone_number: customerPhone,
-                  email_address: customerEmail,
-                },
+    const fulfillments = pickupAt
+      ? [
+          {
+            type: "PICKUP",
+            state: "PROPOSED",
+            pickup_details: {
+              schedule_type: "SCHEDULED",
+              pickup_at: pickupAt,
+              note: `Pickup ${windowText}${infoParts ? " | " + infoParts : ""}`,
+              recipient: {
+                display_name: customerName || "",
+                phone_number: customerPhone || "",
+                email_address: customerEmail || "",
               },
             },
-          ]
-        : undefined;
+          },
+        ]
+      : undefined;
 
-    /* -----------------------------
-       יצירת לינק תשלום
-    ------------------------------ */
-    const idempotencyKey = crypto.randomUUID();
+    const order = {
+      location_id: LOCATION_ID,
+      line_items: lineItems,
+    };
 
-    const { result } = await client.checkoutApi.createPaymentLink({
-      idempotencyKey,
-      order: {
-        location_id: LOCATION_ID,
-        line_items: lineItems,
-        fulfillments: fulfillment,
+    if (fulfillments) {
+      order.fulfillments = fulfillments;
+    }
+
+    const body = {
+      idempotency_key: crypto.randomBytes(16).toString("hex"),
+      order,
+      checkout_options: {
+        redirect_url: `${redirectUrlBase || ""}/thanks.html`,
       },
-      checkoutOptions: {
-        redirectUrl: `${redirectUrlBase}/thanks.html`,
-      },
-      prePopulatedData: {
-        buyerEmail: customerEmail,
-        buyerPhoneNumber: customerPhone,
-      },
-    });
+    };
+
+    const result = await callSquare(
+      "/v2/online-checkout/payment-links",
+      "POST",
+      body
+    );
+
+    if (result.statusCode >= 400 || result.body.errors) {
+      console.error("Square error:", result.body);
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error:
+            result.body.errors?.[0]?.detail ||
+            "Error creating Square payment link",
+        }),
+      };
+    }
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ payment_link: result.paymentLink }),
+      body: JSON.stringify(result.body),
     };
-  } catch (error) {
-    console.error("Square function error:", error);
-    const message =
-      error?.body?.errors?.[0]?.detail ||
-      error?.message ||
-      "Unexpected server error";
+  } catch (err) {
+    console.error("Function error:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: message }),
+      body: JSON.stringify({ error: err.message || "Unexpected server error" }),
     };
   }
 };
