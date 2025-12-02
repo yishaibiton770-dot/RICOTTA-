@@ -3,9 +3,11 @@ const crypto = require("crypto");
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
 
+// הגבלה יומית
 const MAX_DAILY_LIMIT = 250;
 const dailyTotals = {};
 
+// פונקציה כללית לקריאה ל-Square
 function callSquare(path, method, bodyObj) {
   return new Promise((resolve, reject) => {
     const postData = bodyObj ? JSON.stringify(bodyObj) : null;
@@ -15,19 +17,23 @@ function callSquare(path, method, bodyObj) {
       path,
       method,
       headers: {
+        // אם Square יזרוק על התאריך הזה – אפשר להחליף לתאריך קיים, למשל "2023-12-13"
         "Square-Version": "2025-01-15",
         Authorization: `Bearer ${SQUARE_ACCESS_TOKEN}`,
         "Content-Type": "application/json",
-      }
+      },
     };
 
     const req = https.request(options, (res) => {
       let data = "";
-      res.on("data", chunk => data += chunk);
+      res.on("data", (chunk) => (data += chunk));
       res.on("end", () => {
         let json;
-        try { json = JSON.parse(data); }
-        catch { json = { raw: data }; }
+        try {
+          json = JSON.parse(data);
+        } catch {
+          json = { raw: data };
+        }
         resolve({ statusCode: res.statusCode, body: json });
       });
     });
@@ -40,80 +46,132 @@ function callSquare(path, method, bodyObj) {
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== "POST")
+  if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
+  }
 
-  if (!SQUARE_ACCESS_TOKEN)
+  if (!SQUARE_ACCESS_TOKEN) {
     return { statusCode: 500, body: "Missing Access Token" };
+  }
 
   try {
+    const body = JSON.parse(event.body || "{}");
+
     const {
       cartItems,
       redirectUrlBase,
       pickupDate,
-      pickupWindow,
+      pickupWindow,    // מגיע מהפרונט
       customerName,
       customerPhone,
-      customerEmail
-    } = JSON.parse(event.body || "{}");
+      customerEmail,
+      notes,
+    } = body;
 
-    if (!cartItems || !pickupDate || !pickupWindow)
-      return { statusCode: 400, body: "Missing required fields" };
+    if (!cartItems || !pickupDate || !pickupWindow) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing required fields" }),
+      };
+    }
 
-    // Stock check
-    const qty = cartItems.reduce((s, i) => s + Number(i.quantity || 0), 0);
+    // בדיקת כמות יומית
+    const qty = cartItems.reduce(
+      (s, i) => s + Number(i.quantity || 0),
+      0
+    );
     const used = dailyTotals[pickupDate] || 0;
-    if (qty + used > MAX_DAILY_LIMIT)
+
+    if (qty + used > MAX_DAILY_LIMIT) {
       return {
         statusCode: 400,
         body: JSON.stringify({
           error: "soldout",
-          remaining: MAX_DAILY_LIMIT - used
-        })
+          remaining: MAX_DAILY_LIMIT - used,
+        }),
       };
+    }
 
-    // Locations
+    // לוקיישן מ-Square
     const locationsRes = await callSquare("/v2/locations", "GET");
+    if (
+      locationsRes.statusCode >= 400 ||
+      !locationsRes.body.locations ||
+      !locationsRes.body.locations.length
+    ) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: "No Square locations found",
+          details: locationsRes.body,
+        }),
+      };
+    }
+
     const locationId = locationsRes.body.locations[0].id;
 
-    // Build order (no fulfillment!)
-const orderNote =
-  `Pickup Date: ${pickupDate}\n` +
-  `Pickup Window: ${pickupTime}\n` +
-  `Customer: ${customerName}\n` +
-  `Phone: ${customerPhone}\n` +
-  `Email: ${customerEmail}`;
+    // בניית הערת הזמנה
+    const windowText = `${pickupWindow.start.slice(
+      11,
+      16
+    )}–${pickupWindow.end.slice(11, 16)}`;
 
-    const lineItems = cartItems.map(i => ({
-      name: i.name,
-      quantity: String(i.quantity),
-      base_price_money: { amount: i.unitAmountCents, currency: "USD" }
+    const orderNote =
+      `Pickup ${pickupDate} (${windowText})` +
+      ` | Name: ${customerName || ""}` +
+      ` | Phone: ${customerPhone || ""}` +
+      ` | Email: ${customerEmail || ""}` +
+      (notes ? ` | Notes: ${notes}` : "");
+
+    // שורות מוצרים
+    const lineItems = cartItems.map((item) => ({
+      name: item.name,
+      quantity: String(item.quantity),
+      base_price_money: {
+        amount: item.unitAmountCents,
+        currency: "USD",
+      },
     }));
 
-    const order = { location_id: locationId, line_items: lineItems, note: orderNote };
+    const order = {
+      location_id: locationId,
+      line_items: lineItems,
+      note: orderNote,
+    };
 
-    const body = {
+    const bodyReq = {
       idempotency_key: crypto.randomBytes(16).toString("hex"),
       order,
       checkout_options: {
-        redirect_url: `${redirectUrlBase}/success.html`
-      }
+        redirect_url: `${redirectUrlBase}/success.html`,
+      },
     };
 
-    const result = await callSquare("/v2/online-checkout/payment-links", "POST", body);
+    const checkoutRes = await callSquare(
+      "/v2/online-checkout/payment-links",
+      "POST",
+      bodyReq
+    );
 
-    if (result.statusCode >= 400 || result.body.errors)
-      return { statusCode: 400, body: JSON.stringify(result.body) };
+    if (checkoutRes.statusCode >= 400 || checkoutRes.body.errors) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify(checkoutRes.body),
+      };
+    }
 
-    // update stock
+    // עדכון ספירה יומית
     dailyTotals[pickupDate] = used + qty;
 
     return {
       statusCode: 200,
-      body: JSON.stringify(result.body)
+      body: JSON.stringify(checkoutRes.body),
     };
   } catch (err) {
-    return { statusCode: 500, body: err.message };
+    console.error("Netlify function error:", err);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message || "Server error" }),
+    };
   }
 };
-
