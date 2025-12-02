@@ -91,19 +91,11 @@
       0% { transform: rotate(0deg);}
       100% { transform: rotate(360deg);}
     }
-
-    #cart-modal {
-      transition: opacity 0.3s ease-in-out;
-    }
-
-    #cart-modal.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
   </style>
 </head>
 
 <body class="antialiased min-h-screen flex flex-col font-serif">
+
   <!-- NAVBAR -->
   <nav class="fixed w-full z-50 bg-white/90 backdrop-blur-md border-b border-chocolate/5">
     <div class="max-w-7xl mx-auto px-6 lg:px-12">
@@ -149,7 +141,6 @@
   <!-- CART MODAL -->
   <div id="cart-modal" class="fixed inset-0 z-[100] hidden">
     <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="toggleCart()"></div>
-
     <div class="absolute top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl flex flex-col">
       <div class="p-6 border-b border-chocolate/10 flex justify-between items-center bg-cream">
         <h3 class="font-display text-2xl text-chocolate tracking-wide">Your Cart</h3>
@@ -218,9 +209,9 @@
       <div id="menu-grid" class="space-y-24 md:space-y-32">
         <!-- Filled by JS -->
       </div>
+
     </div>
   </section>
-
   <!-- ORDER SECTION -->
   <section id="order" class="bg-[#F4F2EE] py-20 md:py-32 border-t border-chocolate/5">
     <div class="max-w-7xl mx-auto px-6 md:px-12">
@@ -295,8 +286,9 @@
                 <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">
                   Pickup Time
                 </label>
-                <select name="time"
+                <select name="time" required
                         class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent appearance-none">
+                  <option value="">Select Time</option>
                   <option>10:00 - 11:00</option>
                   <option>11:00 - 12:00</option>
                   <option>12:00 - 13:00</option>
@@ -359,11 +351,6 @@
 
             </div>
 
-            <!-- PLACE FOR FUTURE CARD ELEMENTS -->
-            <div id="card-container"
-                 class="mb-6 p-4 bg-white/5 border border-white/10 rounded">
-            </div>
-
             <!-- PAY BUTTON -->
             <button id="btn-pay"
                     onclick="processPayment()"
@@ -392,6 +379,7 @@
   <!-- FOOTER -->
   <footer class="bg-chocolate text-cream/40 py-10 border-t border-white/5 mt-20">
     <div class="max-w-7xl mx-auto px-6 text-center">
+
       <div class="mb-8">
         <span class="font-display text-3xl tracking-[0.15em] text-white/90">RICOTTA</span>
       </div>
@@ -407,393 +395,398 @@
       <p class="text-xs tracking-widest uppercase">
         © 2025 RICOTTA Boutique Donuts.
       </p>
+
     </div>
   </footer>
-
-  <!-- SCRIPT -->
   <script>
-    const TAX_RATE = 0.08875;
+/* -----------------------------------
+  TAX
+----------------------------------- */
+const TAX_RATE = 0.08875;
 
-    /* -----------------------------------
-      MENU DATA
-    ----------------------------------- */
-    const menuData = {
-      premium: {
-        title: "Premium Collection",
-        items: [
-          { id: 1, name: "Dubai Donut", desc: "Rich pistachio cream, crunchy knafeh & crushed pistachios.", price: 10, img: "https://i.postimg.cc/0yqHh34y/1.png" },
-          { id: 2, name: "Crème Brûlée", desc: "Crackly caramel glaze filled with rich, silky cream.", price: 10, img: "https://i.postimg.cc/HkCPFKNY/4.png" },
-          { id: 3, name: "Lemon Meringue", desc: "Tangy lemon cream topped with fluffy, torched meringue.", price: 10, img: "https://i.postimg.cc/fRjgsC40/3.png" },
-          { id: 4, name: "Blueberry Cheesecake", desc: "Rich cream cheese, cheesecake crumble, blueberry jam.", price: 10, img: "https://i.postimg.cc/pVmWdhLy/blwbryz-z-yyz.png" }
-        ]
-      },
+/* -----------------------------------
+  MENU DATA
+----------------------------------- */
+const menuData = {
+  premium: {
+    title: "Premium Collection",
+    items: [
+      { id: 1, name: "Dubai Donut", desc: "Rich pistachio cream, crunchy knafeh & crushed pistachios.", price: 10, img: "https://i.postimg.cc/0yqHh34y/1.png" },
+      { id: 2, name: "Crème Brûlée", desc: "Crackly caramel glaze filled with rich, silky cream.", price: 10, img: "https://i.postimg.cc/HkCPFKNY/4.png" },
+      { id: 3, name: "Lemon Meringue", desc: "Tangy lemon cream topped with fluffy, torched meringue.", price: 10, img: "https://i.postimg.cc/fRjgsC40/3.png" },
+      { id: 4, name: "Blueberry Cheesecake", desc: "Cream cheese, crumble, blueberry jam.", price: 10, img: "https://i.postimg.cc/pVmWdhLy/blwbryz-z-yyz.png" }
+    ]
+  },
 
-      classic: {
-        title: "",
-        items: [
-          { id: 5, name: "Oreo Donut", desc: "Smooth Oreo cream, white chocolate & crunchy crumbs.", price: 8, img: "https://i.postimg.cc/RZzb28YF/5.png" },
-          { id: 6, name: "Almond Cream", desc: "Rich almond cream topped with roasted almonds.", price: 8, img: "https://i.postimg.cc/DwKYRDN1/2.png" }
-        ]
-      }
-    };
+  classic: {
+    title: "",
+    items: [
+      { id: 5, name: "Oreo Donut", desc: "Oreo cream, white chocolate, crunchy crumbs.", price: 8, img: "https://i.postimg.cc/RZzb28YF/5.png" },
+      { id: 6, name: "Almond Cream", desc: "Almond cream topped with roasted almonds.", price: 8, img: "https://i.postimg.cc/DwKYRDN1/2.png" }
+    ]
+  }
+};
 
-    /* -----------------------------------
-      CART LOGIC
-    ----------------------------------- */
-    let cart = {};
+/* -----------------------------------
+  CART LOGIC
+----------------------------------- */
+let cart = {};
 
-    function scrollToMenu() {
-      document.getElementById("menu").scrollIntoView({ behavior: "smooth" });
-    }
+function scrollToMenu() {
+  document.getElementById("menu").scrollIntoView({ behavior: "smooth" });
+}
 
-    function toggleCart() {
-      const modal = document.getElementById("cart-modal");
-      modal.classList.toggle("hidden");
-      if (!modal.classList.contains("hidden")) renderModalCart();
-    }
+function toggleCart() {
+  const modal = document.getElementById("cart-modal");
+  modal.classList.toggle("hidden");
+  if (!modal.classList.contains("hidden")) renderModalCart();
+}
 
-    function proceedToCheckout() {
-      toggleCart();
-      document.getElementById("order").scrollIntoView({ behavior: "smooth" });
-    }
+function proceedToCheckout() {
+  toggleCart();
+  document.getElementById("order").scrollIntoView({ behavior: "smooth" });
+}
 
-    /* RENDER MENU */
-    function renderMenu() {
-      const container = document.getElementById("menu-grid");
-      container.innerHTML = "";
+/* -----------------------------------
+  RENDER MENU
+----------------------------------- */
+function renderMenu() {
+  const container = document.getElementById("menu-grid");
+  container.innerHTML = "";
 
-      for (const cat of Object.values(menuData)) {
-        const section = document.createElement("div");
+  for (const cat of Object.values(menuData)) {
+    const section = document.createElement("div");
 
-        const gridClass =
-          cat.items.length <= 2
-            ? "flex flex-wrap justify-center gap-10 md:gap-16"
-            : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-12";
+    const gridClass =
+      cat.items.length <= 2
+        ? "flex flex-wrap justify-center gap-10 md:gap-16"
+        : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-12";
 
-        section.innerHTML = `
-          <div class="text-center mb-16 md:mb-24">
-            <h4 class="font-display text-3xl md:text-4xl text-chocolate mb-3 tracking-wide">
-              ${cat.title}
-            </h4>
-            <div class="w-8 h-px bg-chocolate/10 mx-auto"></div>
-          </div>
+    section.innerHTML = `
+      <div class="text-center mb-16 md:mb-24">
+        <h4 class="font-display text-3xl md:text-4xl text-chocolate mb-3 tracking-wide">
+          ${cat.title}
+        </h4>
+        <div class="w-8 h-px bg-chocolate/10 mx-auto"></div>
+      </div>
 
-          <div class="${gridClass} px-4 w-full">
-            ${cat.items
-              .map(
-                (i) => `
-                <div class="group flex flex-col items-center text-center max-w-[300px] w-full">
-                  <div class="w-64 h-64 mb-8 relative cursor-pointer transition-transform duration-500 group-hover:-translate-y-2"
-                       onclick="updateCart(${i.id}, 1)">
-                    <img src="${i.img}"
-                         class="w-full h-full object-cover rounded-full shadow-xl group-hover:shadow-2xl transition-shadow duration-500">
-                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 rounded-full transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <div class="bg-white text-chocolate w-12 h-12 rounded-full flex items-center justify-center shadow-lg transform scale-0 group-hover:scale-100 transition-transform duration-300">
-                        <i class="fa-solid fa-plus text-lg"></i>
-                      </div>
-                    </div>
+      <div class="${gridClass} px-4 w-full">
+        ${cat.items
+          .map(
+            (i) => `
+            <div class="group flex flex-col items-center text-center max-w-[300px] w-full">
+              <div class="w-64 h-64 mb-8 relative cursor-pointer transition-transform duration-500 group-hover:-translate-y-2"
+                   onclick="updateCart(${i.id}, 1)">
+                <img src="${i.img}"
+                     class="w-full h-full object-cover rounded-full shadow-xl group-hover:shadow-2xl transition-shadow duration-500">
+                <div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 rounded-full transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <div class="bg-white text-chocolate w-12 h-12 rounded-full flex items-center justify-center shadow-lg transform scale-0 group-hover:scale-100 transition-transform duration-300">
+                    <i class="fa-solid fa-plus text-lg"></i>
                   </div>
-
-                  <h5 class="font-display text-2xl text-chocolate mb-2 tracking-wide">${i.name}</h5>
-                  <p class="font-serif text-base text-chocolate/60 mb-4 px-2 leading-relaxed min-h-[3rem]">${i.desc}</p>
-                  <p class="font-serif text-lg text-gold-dark font-bold tracking-widest mb-6">$${i.price.toFixed(2)}</p>
-
-                  <div class="flex items-center gap-6">
-                    <button onclick="updateCart(${i.id}, -1)"
-                            class="w-10 h-10 rounded-full border border-chocolate/10 hover:bg-chocolate hover:text-white transition-all flex items-center justify-center">
-                      <i class="fa-solid fa-minus text-xs"></i>
-                    </button>
-
-                    <span id="qty-${i.id}" class="font-display text-2xl w-6 text-chocolate">0</span>
-
-                    <button onclick="updateCart(${i.id}, 1)"
-                            class="w-10 h-10 rounded-full border border-chocolate/10 hover:bg-chocolate hover:text-white transition-all flex items-center justify-center">
-                      <i class="fa-solid fa-plus text-xs"></i>
-                    </button>
-                  </div>
-                </div>
-              `
-              )
-              .join("")}
-          </div>
-        `;
-
-        container.appendChild(section);
-      }
-    }
-
-    /* FIND ITEM */
-    function findItemById(id) {
-      for (const cat of Object.values(menuData)) {
-        const item = cat.items.find((i) => i.id === id);
-        if (item) return item;
-      }
-      return null;
-    }
-
-    /* UPDATE CART */
-    function updateCart(id, delta) {
-      const item = findItemById(id);
-      if (!item) return;
-
-      if (!cart[id]) {
-        cart[id] = { id: id, name: item.name, price: item.price, qty: 0 };
-      }
-
-      cart[id].qty += delta;
-
-      if (cart[id].qty <= 0) delete cart[id];
-
-      const qtySpan = document.getElementById(`qty-${id}`);
-      if (qtySpan) qtySpan.textContent = cart[id]?.qty || 0;
-
-      renderCart();
-      renderModalCart();
-    }
-
-    /* RENDER MAIN CART */
-    function renderCart() {
-      const container = document.getElementById("cart-items");
-      const subtotalEl = document.getElementById("subtotal-amount");
-      const taxEl = document.getElementById("tax-amount");
-      const totalEl = document.getElementById("total-price");
-      const btnPay = document.getElementById("btn-pay");
-
-      const desktopBadge = document.getElementById("desktop-cart-count");
-      const mobileBadge = document.getElementById("mobile-cart-count");
-
-      const items = Object.values(cart);
-
-      const totalQty = items.reduce((s, i) => s + i.qty, 0);
-      if (totalQty > 0) {
-        if (desktopBadge) {
-          desktopBadge.textContent = totalQty;
-          desktopBadge.classList.remove("hidden");
-        }
-        if (mobileBadge) {
-          mobileBadge.textContent = totalQty;
-          mobileBadge.classList.remove("hidden");
-        }
-      } else {
-        if (desktopBadge) desktopBadge.classList.add("hidden");
-        if (mobileBadge) mobileBadge.classList.add("hidden");
-      }
-
-      if (!items.length) {
-        container.innerHTML = `
-          <div class="text-center py-12 opacity-20 font-serif text-lg italic">
-            Your box is empty.
-          </div>`;
-        subtotalEl.textContent = "$0.00";
-        taxEl.textContent = "$0.00";
-        totalEl.textContent = "$0.00";
-        btnPay.disabled = true;
-        return;
-      }
-
-      let subtotal = 0;
-
-      container.innerHTML = items
-        .map((item) => {
-          const line = item.price * item.qty;
-          subtotal += line;
-          return `
-            <div class="flex items-center justify-between bg-white/5 border border-white/10 rounded-full px-6 py-4">
-              <div class="flex items-center gap-4">
-                <div class="w-9 h-9 rounded-full bg-gold/25 flex items-center justify-center text-xs font-display text-cream tracking-widest">
-                  ${item.qty}
-                </div>
-                <span class="font-display text-base text-cream">${item.name}</span>
-              </div>
-              <div class="font-display text-base text-gold">$${line.toFixed(2)}</div>
-            </div>`;
-        })
-        .join("");
-
-      const tax = subtotal * TAX_RATE;
-      const total = subtotal + tax;
-
-      subtotalEl.textContent = `$${subtotal.toFixed(2)}`;
-      taxEl.textContent = `$${tax.toFixed(2)}`;
-      totalEl.textContent = `$${total.toFixed(2)}`;
-      btnPay.disabled = false;
-    }
-
-    /* RENDER MODAL CART */
-    function renderModalCart() {
-      const container = document.getElementById("modal-cart-items");
-      const totalEl = document.getElementById("modal-total-price");
-
-      const items = Object.values(cart);
-
-      if (!items.length) {
-        container.innerHTML =
-          '<div class="text-center py-20 opacity-40 font-serif italic">Your cart is empty.</div>';
-        totalEl.textContent = "$0.00";
-        return;
-      }
-
-      let subtotal = 0;
-
-      container.innerHTML = items
-        .map((item) => {
-          const line = item.price * item.qty;
-          subtotal += line;
-
-          return `
-            <div class="flex justify-between items-center border-b border-chocolate/5 py-3">
-              <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-full overflow-hidden bg-gray-100">
-                  <img src="${findItemById(item.id)?.img}" class="w-full h-full object-cover">
-                </div>
-                <div>
-                  <p class="font-serif text-chocolate text-lg">${item.name}</p>
-                  <p class="text-xs text-chocolate/50">$${item.price} each</p>
                 </div>
               </div>
 
-              <div class="flex items-center gap-3">
-                <button onclick="updateCart(${item.id}, -1)"
-                        class="w-6 h-6 rounded-full border border-chocolate/20 hover:bg-chocolate hover:text-white text-xs">-</button>
-                <span class="font-display w-4 text-center">${item.qty}</span>
-                <button onclick="updateCart(${item.id}, 1)"
-                        class="w-6 h-6 rounded-full border border-chocolate/20 hover:bg-chocolate hover:text-white text-xs">+</button>
+              <h5 class="font-display text-2xl text-chocolate mb-2 tracking-wide">${i.name}</h5>
+              <p class="font-serif text-base text-chocolate/60 mb-4 px-2 leading-relaxed min-h-[3rem]">${i.desc}</p>
+              <p class="font-serif text-lg text-gold-dark font-bold tracking-widest mb-6">$${i.price.toFixed(2)}</p>
+
+              <div class="flex items-center gap-6">
+                <button onclick="updateCart(${i.id}, -1)"
+                        class="w-10 h-10 rounded-full border border-chocolate/10 hover:bg-chocolate hover:text-white transition-all flex items-center justify-center">
+                  <i class="fa-solid fa-minus text-xs"></i>
+                </button>
+
+                <span id="qty-${i.id}" class="font-display text-2xl w-6 text-chocolate">0</span>
+
+                <button onclick="updateCart(${i.id}, 1)"
+                        class="w-10 h-10 rounded-full border border-chocolate/10 hover:bg-chocolate hover:text-white transition-all flex items-center justify-center">
+                  <i class="fa-solid fa-plus text-xs"></i>
+                </button>
               </div>
             </div>
-          `;
-        })
-        .join("");
+          `
+          )
+          .join("")}
+      </div>
+    `;
 
-      const total = subtotal + subtotal * TAX_RATE;
-      totalEl.textContent = "$" + total.toFixed(2);
-    }
+    container.appendChild(section);
+  }
+}
 
-    /* חסימת שבת + 20/12 */
-    function validatePickupDate(input) {
-      if (!input || !input.value) return;
+/* -----------------------------------
+  FIND ITEM
+----------------------------------- */
+function findItemById(id) {
+  for (const cat of Object.values(menuData)) {
+    const item = cat.items.find((i) => i.id === id);
+    if (item) return item;
+  }
+  return null;
+}
 
-      const value = input.value;
+/* -----------------------------------
+  UPDATE CART
+----------------------------------- */
+function updateCart(id, delta) {
+  const item = findItemById(id);
+  if (!item) return;
 
-      // חסימה ספציפית של 20 בדצמבר
-      if (value === "2025-12-20") {
-        alert("לא ניתן לבצע הזמנות בתאריך זה. בחר יום אחר.");
-        input.value = "";
-        return;
-      }
+  if (!cart[id]) {
+    cart[id] = { id: id, name: item.name, price: item.price, qty: 0 };
+  }
 
-      // חסימת שבת – 6 = Saturday
-      const d = new Date(value + "T12:00:00");
-      const day = d.getUTCDay(); // 0=Sunday ... 6=Saturday
-      if (day === 6) {
-        alert("לא ניתן לבצע הזמנות לשבת. בחר יום אחר.");
-        input.value = "";
-      }
-    }
+  cart[id].qty += delta;
 
-    /* INITIAL LOAD */
-    document.addEventListener("DOMContentLoaded", () => {
-      renderMenu();
-      renderCart();
-      renderModalCart();
+  if (cart[id].qty <= 0) delete cart[id];
+
+  const qtySpan = document.getElementById(`qty-${id}`);
+  if (qtySpan) qtySpan.textContent = cart[id]?.qty || 0;
+
+  renderCart();
+  renderModalCart();
+}
+
+/* -----------------------------------
+  RENDER MAIN CART
+----------------------------------- */
+function renderCart() {
+  const container = document.getElementById("cart-items");
+  const subtotalEl = document.getElementById("subtotal-amount");
+  const taxEl = document.getElementById("tax-amount");
+  const totalEl = document.getElementById("total-price");
+  const btnPay = document.getElementById("btn-pay");
+
+  const desktopBadge = document.getElementById("desktop-cart-count");
+  const mobileBadge = document.getElementById("mobile-cart-count");
+
+  const items = Object.values(cart);
+
+  const totalQty = items.reduce((s, i) => s + i.qty, 0);
+  if (totalQty > 0) {
+    desktopBadge.textContent = totalQty;
+    mobileBadge.textContent = totalQty;
+    desktopBadge.classList.remove("hidden");
+    mobileBadge.classList.remove("hidden");
+  } else {
+    desktopBadge.classList.add("hidden");
+    mobileBadge.classList.add("hidden");
+  }
+
+  if (!items.length) {
+    container.innerHTML = `
+      <div class="text-center py-12 opacity-20 font-serif text-lg italic">
+        Your box is empty.
+      </div>`;
+    subtotalEl.textContent = "$0.00";
+    taxEl.textContent = "$0.00";
+    totalEl.textContent = "$0.00";
+    btnPay.disabled = true;
+    return;
+  }
+
+  let subtotal = 0;
+
+  container.innerHTML = items
+    .map((item) => {
+      const line = item.price * item.qty;
+      subtotal += line;
+      return `
+        <div class="flex items-center justify-between bg-white/5 border border-white/10 rounded-full px-6 py-4">
+          <div class="flex items-center gap-4">
+            <div class="w-9 h-9 rounded-full bg-gold/25 flex items-center justify-center text-xs font-display text-cream tracking-widest">
+              ${item.qty}
+            </div>
+            <span class="font-display text-base text-cream">${item.name}</span>
+          </div>
+          <div class="font-display text-base text-gold">$${line.toFixed(2)}</div>
+        </div>`;
+    })
+    .join("");
+
+  const tax = subtotal * TAX_RATE;
+  const total = subtotal + tax;
+
+  subtotalEl.textContent = `$${subtotal.toFixed(2)}`;
+  taxEl.textContent = `$${tax.toFixed(2)}`;
+  totalEl.textContent = `$${total.toFixed(2)}`;
+  btnPay.disabled = false;
+}
+
+/* -----------------------------------
+  RENDER MODAL CART
+----------------------------------- */
+function renderModalCart() {
+  const container = document.getElementById("modal-cart-items");
+  const totalEl = document.getElementById("modal-total-price");
+
+  const items = Object.values(cart);
+
+  if (!items.length) {
+    container.innerHTML =
+      '<div class="text-center py-20 opacity-40 font-serif italic">Your cart is empty.</div>';
+    totalEl.textContent = "$0.00";
+    return;
+  }
+
+  let subtotal = 0;
+
+  container.innerHTML = items
+    .map((item) => {
+      const line = item.price * item.qty;
+      subtotal += line;
+
+      return `
+        <div class="flex justify-between items-center border-b border-chocolate/5 py-3">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full overflow-hidden bg-gray-100">
+              <img src="${findItemById(item.id)?.img}" class="w-full h-full object-cover">
+            </div>
+            <div>
+              <p class="font-serif text-chocolate text-lg">${item.name}</p>
+              <p class="text-xs text-chocolate/50">$${item.price} each</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button onclick="updateCart(${item.id}, -1)"
+                    class="w-6 h-6 rounded-full border border-chocolate/20 hover:bg-chocolate hover:text-white text-xs">-</button>
+            <span class="font-display w-4 text-center">${item.qty}</span>
+            <button onclick="updateCart(${item.id}, 1)"
+                    class="w-6 h-6 rounded-full border border-chocolate/20 hover:bg-chocolate hover:text-white text-xs">+</button>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  const total = subtotal + subtotal * TAX_RATE;
+  totalEl.textContent = "$" + total.toFixed(2);
+}
+
+/* -----------------------------------
+  BLOCK SHABBAT + 20 DEC
+----------------------------------- */
+function validatePickupDate(input) {
+  if (!input || !input.value) return;
+
+  const value = input.value;
+
+  if (value === "2025-12-20") {
+    alert("לא ניתן לבצע הזמנות בתאריך זה.");
+    input.value = "";
+    return;
+  }
+
+  const d = new Date(value + "T12:00:00");
+  if (d.getUTCDay() === 6) {
+    alert("לא ניתן לבצע הזמנות לשבת.");
+    input.value = "";
+  }
+}
+
+/* -----------------------------------
+  ON LOAD
+----------------------------------- */
+document.addEventListener("DOMContentLoaded", () => {
+  renderMenu();
+  renderCart();
+  renderModalCart();
+});
+
+/* -----------------------------------
+  PROCESS PAYMENT — CLEAN
+----------------------------------- */
+async function processPayment() {
+  const btn = document.getElementById("btn-pay");
+  const err = document.getElementById("error-msg");
+
+  err.classList.add("hidden");
+  err.textContent = "";
+
+  const items = Object.values(cart || {});
+  if (!items.length) {
+    err.textContent = "Your box is empty.";
+    err.classList.remove("hidden");
+    return;
+  }
+
+  const form = document.getElementById("order-form");
+  const formData = new FormData(form);
+
+  const pickupDate = formData.get("date");
+  const pickupTime = formData.get("time");
+
+  if (!pickupDate || !pickupTime) {
+    err.textContent = "Please choose pickup date and time.";
+    err.classList.remove("hidden");
+    return;
+  }
+
+  const customerName = formData.get("name");
+  const customerPhone = formData.get("phone");
+  const customerEmail = formData.get("email");
+  const notes = formData.get("notes");
+
+  btn.disabled = true;
+  btn.innerText = "Processing...";
+
+  try {
+    const payload = {
+      cartItems: items.map((i) => ({
+        name: i.name,
+        quantity: i.qty,
+        unitAmountCents: Math.round(i.price * 100)
+      })),
+      currency: "USD",
+      redirectUrlBase: window.location.origin,
+      pickupDate,
+      pickupTime,
+      customerName,
+      customerPhone,
+      customerEmail,
+      notes
+    };
+
+    const res = await fetch("/.netlify/functions/create-checkout-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
     });
 
-    /* PROCESS PAYMENT – שולח את כל פרטי האיסוף */
-    async function processPayment() {
-      const btn = document.getElementById("btn-pay");
-      const err = document.getElementById("error-msg");
-
-      err.classList.add("hidden");
-      err.textContent = "";
-
-      const items = Object.values(cart || {});
-      if (!items.length) {
-        err.textContent = "Your box is empty.";
-        err.classList.remove("hidden");
-        return;
-      }
-
-      const formEl = document.getElementById("order-form");
-      const formData = new FormData(formEl);
-
-      const pickupDate = formData.get("date");
-      const pickupTime: formData.get("time"),
-
-      if (!pickupDate || !pickupTimeLabel) {
-        err.textContent = "Please choose pickup date and time.";
-        err.classList.remove("hidden");
-        return;
-      }
-
-      const [fromStr, toStr] = pickupTimeLabel.split("-").map((s) => s.trim());
-      const pickupWindow = {
-        start: `${pickupDate}T${fromStr}:00`,
-        end: `${pickupDate}T${toStr}:00`,
-      };
-
-      btn.disabled = true;
-      btn.innerText = "Processing...";
-
-      try {
-        const payload = {
-          cartItems: items.map((i) => ({
-            name: i.name,
-            quantity: i.qty,
-            unitAmountCents: Math.round(i.price * 100),
-          })),
-          currency: "USD",
-          redirectUrlBase: window.location.origin,
-          pickupDate,
-          pickupWindow,
-          customerName: formData.get("name"),
-          customerPhone: formData.get("phone"),
-          customerEmail: formData.get("email"),
-          notes: formData.get("notes") || "",
-        };
-
-        const res = await fetch("/.netlify/functions/create-checkout-link", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        const text = await res.text();
-        let data;
-        try {
-          data = JSON.parse(text);
-        } catch {
-          data = null;
-        }
-
-        if (!res.ok) {
-          const msg =
-            data?.error ||
-            data?.message ||
-            (Array.isArray(data?.errors) && data.errors[0]?.detail) ||
-            "There was a problem creating the payment link. Please try again.";
-          err.textContent = msg;
-          err.classList.remove("hidden");
-          console.error("Checkout error (server response):", text);
-          return;
-        }
-
-        if (!data || !data.payment_link || !data.payment_link.url) {
-          err.textContent = "Unexpected server response. Please contact the store.";
-          err.classList.remove("hidden");
-          console.error("Invalid function response:", text);
-          return;
-        }
-
-        window.location.href = data.payment_link.url;
-      } catch (e) {
-        console.error("Checkout error:", e);
-        err.textContent = "Unexpected error. Please try again.";
-        err.classList.remove("hidden");
-      } finally {
-        btn.disabled = false;
-        btn.innerText = "Proceed to Payment";
-      }
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = null;
     }
-  </script>
-</body>
-</html>
 
+    if (!res.ok) {
+      err.textContent =
+        data?.error ||
+        data?.message ||
+        "There was a problem creating the payment link.";
+      err.classList.remove("hidden");
+      console.error("Server response:", text);
+      return;
+    }
+
+    if (!data?.payment_link?.url) {
+      err.textContent = "Unexpected server response. Please contact the store.";
+      err.classList.remove("hidden");
+      console.error("Invalid:", text);
+      return;
+    }
+
+    window.location.href = data.payment_link.url;
+  } catch (e) {
+    console.error("Checkout error:", e);
+    err.textContent = "Unexpected error. Please try again.";
+    err.classList.remove("hidden");
+  } finally {
+    btn.disabled = false;
+    btn.innerText = "Proceed to Payment";
+  }
+}
+</script>
