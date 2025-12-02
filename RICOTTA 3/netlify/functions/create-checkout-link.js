@@ -4,12 +4,11 @@ const https = require("https");
 const crypto = require("crypto");
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
-const LOCATION_ID = process.env.SQUARE_LOCATION_ID || ""; // שים פה ידנית אם אין env
+const LOCATION_ID = "L54AH5T8V5HVN"; // ה-Location ID שלך
 
 function callSquare(path, method, bodyObj) {
   return new Promise((resolve, reject) => {
-    const body = bodyObj ? JSON.stringify(bodyObj) : null;
-
+    const body = JSON.stringify(bodyObj || {});
     const options = {
       hostname: "connect.squareup.com",
       path,
@@ -36,8 +35,7 @@ function callSquare(path, method, bodyObj) {
     });
 
     req.on("error", reject);
-
-    if (body) req.write(body);
+    req.write(body);
     req.end();
   });
 }
@@ -48,7 +46,7 @@ exports.handler = async (event) => {
   }
 
   if (!SQUARE_ACCESS_TOKEN) {
-    return { statusCode: 500, body: "Missing SQUARE_ACCESS_TOKEN" };
+    return { statusCode: 500, body: "Missing Square Access Token" };
   }
 
   try {
@@ -59,7 +57,7 @@ exports.handler = async (event) => {
       currency = "USD",
       redirectUrlBase,
       pickupDate,
-      pickupTime, // למשל "10:00 - 11:00"
+      pickupTime,            // "10:00 - 11:00"
       customerName,
       customerPhone,
       customerEmail,
@@ -69,30 +67,27 @@ exports.handler = async (event) => {
     if (!cartItems || !cartItems.length) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "cartItems is required" }),
+        body: JSON.stringify({ error: "Cart is empty" }),
       };
     }
 
-    /* -----------------------------
-       בניית תיאור איסוף
-    ------------------------------ */
+    // --------------------------
+    // Build Pickup Display Text
+    // --------------------------
     let windowText = "";
     let pickupAt = null;
 
     if (pickupDate && pickupTime) {
       windowText = `${pickupDate} (${pickupTime})`;
 
-      // נחלץ את שעת ההתחלה (לדוגמה "10:00")
       const fromMatch = pickupTime.match(/^(\d{2}:\d{2})/);
       if (fromMatch) {
-        const from = fromMatch[1]; // HH:MM
-        // אזור זמן ניו יורק –5 שעות
-        pickupAt = `${pickupDate}T${from}:00-05:00`;
+        const from = fromMatch[1];
+        pickupAt = `${pickupDate}T${from}:00-05:00`; // NY timezone
       }
-    } else if (pickupDate) {
-      windowText = pickupDate;
     }
 
+    // Format additional info
     const infoParts = [
       customerName ? `Name: ${customerName}` : "",
       customerPhone ? `Phone: ${customerPhone}` : "",
@@ -102,9 +97,9 @@ exports.handler = async (event) => {
       .filter(Boolean)
       .join(" | ");
 
-    /* -----------------------------
-       שורות מוצרים
-    ------------------------------ */
+    // --------------------------
+    // Build line_items
+    // --------------------------
     const lineItems = cartItems.map((item) => ({
       name: item.name,
       quantity: String(item.quantity),
@@ -114,19 +109,19 @@ exports.handler = async (event) => {
       },
     }));
 
-    // שורת INFO ב־$0 שתופיע על הטיקט הקטן
+    // Add INFO line at $0 (shows on receipt)
     if (windowText || infoParts) {
       lineItems.push({
-        name: `Pickup ${windowText}`,
+        name: `Pickup: ${windowText}`,
         quantity: "1",
         base_price_money: { amount: 0, currency },
         note: infoParts,
       });
     }
 
-    /* -----------------------------
-       Fulfillment (כדי שיראו בדשבורד)
-    ------------------------------ */
+    // --------------------------
+    // Fulfillment (what Square prints on the small kitchen ticket)
+    // --------------------------
     const fulfillments = pickupAt
       ? [
           {
@@ -135,7 +130,7 @@ exports.handler = async (event) => {
             pickup_details: {
               schedule_type: "SCHEDULED",
               pickup_at: pickupAt,
-              note: `Pickup ${windowText}${infoParts ? " | " + infoParts : ""}`,
+              note: `Pickup: ${windowText}\n${infoParts}`,
               recipient: {
                 display_name: customerName || "",
                 phone_number: customerPhone || "",
@@ -151,15 +146,13 @@ exports.handler = async (event) => {
       line_items: lineItems,
     };
 
-    if (fulfillments) {
-      order.fulfillments = fulfillments;
-    }
+    if (fulfillments) order.fulfillments = fulfillments;
 
     const body = {
       idempotency_key: crypto.randomBytes(16).toString("hex"),
       order,
       checkout_options: {
-        redirect_url: `${redirectUrlBase || ""}/thanks.html`,
+        redirect_url: `${redirectUrlBase}/thanks.html`,
       },
     };
 
@@ -170,13 +163,12 @@ exports.handler = async (event) => {
     );
 
     if (result.statusCode >= 400 || result.body.errors) {
-      console.error("Square error:", result.body);
       return {
         statusCode: 400,
         body: JSON.stringify({
           error:
             result.body.errors?.[0]?.detail ||
-            "Error creating Square payment link",
+            "Square payment link creation failed",
         }),
       };
     }
@@ -186,10 +178,11 @@ exports.handler = async (event) => {
       body: JSON.stringify(result.body),
     };
   } catch (err) {
-    console.error("Function error:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message || "Unexpected server error" }),
+      body: JSON.stringify({
+        error: err.message || "Unexpected server error",
+      }),
     };
   }
 };
