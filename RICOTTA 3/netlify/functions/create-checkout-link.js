@@ -167,8 +167,24 @@ exports.handler = async (event) => {
       ) || locations[0];
 
     const locationId = selectedLocation.id;
+    const locationTz = selectedLocation.timezone || "America/New_York";
 
-    // ---- ❸ בניית ההזמנה ל-Square ----
+    // ---- ❸ בניית pickup_at בפורמט ש-Square אוהב ----
+    function parseStartTimeWindow(t) {
+      if (!t) return "10:00"; // ברירת מחדל
+      const part = String(t).split("-")[0] || t;
+      return part.trim(); // "10:00"
+    }
+
+    function buildPickupIso(dateStr, timeWindow) {
+      const hhmm = parseStartTimeWindow(timeWindow); // "10:00"
+      // Square מצפה ל-YYYY-MM-DDTHH:MM:SS (ללא offset, timezone לפי location)
+      return `${dateStr}T${hhmm.padStart(5, "0")}:00`;
+    }
+
+    const pickupAt = buildPickupIso(pickupDate, pickupTime);
+
+    // ---- ❹ בניית line items ----
     const lineItems = cartItems.map((item) => ({
       name: item.name,
       quantity: String(item.quantity || 1),
@@ -176,6 +192,10 @@ exports.handler = async (event) => {
         amount: item.unitAmountCents,
         currency,
       },
+      note:
+        pickupDate && pickupTime
+          ? `Pickup ${pickupDate} ${pickupTime}`
+          : undefined,
     }));
 
     const orderNote = [
@@ -190,10 +210,40 @@ exports.handler = async (event) => {
       .filter(Boolean)
       .join(" | ");
 
+    // ---- ❺ בניית ההזמנה עם Fulfillment PICKUP ----
     const order = {
       location_id: locationId,
       line_items: lineItems,
       note: orderNote,
+      ticket_name:
+        pickupDate && pickupTime
+          ? `${pickupDate} ${pickupTime}`
+          : undefined,
+      metadata: {
+        pickup_date: pickupDate || "",
+        pickup_time: pickupTime || "",
+        customer_name: customerName || "",
+        customer_phone: customerPhone || "",
+        customer_email: customerEmail || "",
+      },
+      fulfillments: [
+        {
+          type: "PICKUP",
+          state: "PROPOSED",
+          pickup_details: {
+            schedule_type: "SCHEDULED",
+            pickup_at: pickupAt, // YYYY-MM-DDTHH:MM:SS
+            // חלון של שעה – אופציונלי:
+            pickup_window_duration: "PT1H",
+            note: `Pickup window: ${pickupTime}`,
+            recipient: {
+              display_name: customerName || "",
+              email_address: customerEmail || "",
+              phone_number: customerPhone || "",
+            },
+          },
+        },
+      ],
     };
 
     // idempotency key בטוח
@@ -209,7 +259,7 @@ exports.handler = async (event) => {
       },
     };
 
-    // ---- ❹ יצירת לינק לתשלום ב-Square ----
+    // ---- ❻ יצירת לינק לתשלום ב-Square ----
     const checkoutRes = await callSquare(
       "/v2/online-checkout/payment-links",
       "POST",
@@ -224,10 +274,10 @@ exports.handler = async (event) => {
       };
     }
 
-    // ====== ❺ עדכון המונה ליום רק אחרי שהלינק נוצר בהצלחה ======
+    // ====== ❼ עדכון המונה ליום רק אחרי שהלינק נוצר בהצלחה ======
     dailyTotals[pickupDate] = currentForDay + requestedQty;
     console.log(
-      `Updated total for ${pickupDate}: ${dailyTotals[pickupDate]}/${MAX_DAILY_LIMIT}`
+      `Updated total for ${pickupDate}: ${dailyTotals[pickupDate]}/${MAX_DAILY_LIMIT} (tz: ${locationTz})`
     );
 
     return {
