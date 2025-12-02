@@ -1,14 +1,11 @@
-// netlify/functions/create-checkout-link.js
 const https = require("https");
 const crypto = require("crypto");
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
 
-// ====== הגבלת מלאי לפי יום ======
 const MAX_DAILY_LIMIT = 250;
 const dailyTotals = {};
 
-// קריאה ל־Square
 function callSquare(path, method, bodyObj) {
   return new Promise((resolve, reject) => {
     const postData = bodyObj ? JSON.stringify(bodyObj) : null;
@@ -21,29 +18,17 @@ function callSquare(path, method, bodyObj) {
         "Square-Version": "2025-01-15",
         Authorization: `Bearer ${SQUARE_ACCESS_TOKEN}`,
         "Content-Type": "application/json",
-      },
+      }
     };
-
-    if (postData) {
-      options.headers["Content-Length"] = Buffer.byteLength(postData);
-    }
 
     const req = https.request(options, (res) => {
       let data = "";
-
-      res.on("data", (chunk) => (data += chunk));
+      res.on("data", chunk => data += chunk);
       res.on("end", () => {
-        try {
-          resolve({
-            statusCode: res.statusCode,
-            body: JSON.parse(data || "{}"),
-          });
-        } catch (e) {
-          resolve({
-            statusCode: res.statusCode,
-            body: { raw: data, parseError: e.message },
-          });
-        }
+        let json;
+        try { json = JSON.parse(data); }
+        catch { json = { raw: data }; }
+        resolve({ statusCode: res.statusCode, body: json });
       });
     });
 
@@ -55,123 +40,78 @@ function callSquare(path, method, bodyObj) {
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== "POST") {
+  if (event.httpMethod !== "POST")
     return { statusCode: 405, body: "Method Not Allowed" };
-  }
 
-  if (!SQUARE_ACCESS_TOKEN) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Missing SQUARE_ACCESS_TOKEN" }),
-    };
-  }
+  if (!SQUARE_ACCESS_TOKEN)
+    return { statusCode: 500, body: "Missing Access Token" };
 
   try {
     const {
       cartItems,
-      currency = "USD",
       redirectUrlBase,
       pickupDate,
-      pickupTime,
+      pickupWindow,
       customerName,
       customerPhone,
-      customerEmail,
-      subtotalCents,
-      taxCents,
-      totalCents,
+      customerEmail
     } = JSON.parse(event.body || "{}");
 
-    if (!cartItems || !cartItems.length || !pickupDate) {
+    if (!cartItems || !pickupDate || !pickupWindow)
       return { statusCode: 400, body: "Missing required fields" };
-    }
 
-    // ===== מגבלת 250 =====
-    const requestedQty = cartItems.reduce(
-      (s, item) => s + Number(item.quantity || 0),
-      0
-    );
-
-    const current = dailyTotals[pickupDate] || 0;
-    const remaining = MAX_DAILY_LIMIT - current;
-
-    if (requestedQty > remaining) {
+    // Stock check
+    const qty = cartItems.reduce((s, i) => s + Number(i.quantity || 0), 0);
+    const used = dailyTotals[pickupDate] || 0;
+    if (qty + used > MAX_DAILY_LIMIT)
       return {
         statusCode: 400,
         body: JSON.stringify({
-          error: "Stock Limit Exceeded",
-          remaining,
-        }),
+          error: "soldout",
+          remaining: MAX_DAILY_LIMIT - used
+        })
       };
-    }
 
-    // ===== שליפת locationId =====
+    // Locations
     const locationsRes = await callSquare("/v2/locations", "GET");
-    const locations = locationsRes.body.locations || [];
-    const locationId = locations.find((l) =>
-      (l.capabilities || []).includes("CREDIT_CARD_PROCESSING")
-    )?.id;
+    const locationId = locationsRes.body.locations[0].id;
 
-    if (!locationId) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "No Square location found" }),
-      };
-    }
+    // Build order (no fulfillment!)
+    const orderNote =
+      `Pickup ${pickupDate} (${pickupWindow.start.slice(11,16)}–${pickupWindow.end.slice(11,16)})` +
+      ` | Name: ${customerName}` +
+      ` | Phone: ${customerPhone}` +
+      ` | Email: ${customerEmail}`;
 
-    // ===== שורת הערה יפה =====
-    const formattedNote = [
-      `Pickup: ${pickupDate} ${pickupTime}`,
-      customerName ? `Name: ${customerName}` : null,
-      customerPhone ? `Phone: ${customerPhone}` : null,
-      customerEmail ? `Email: ${customerEmail}` : null,
-    ]
-      .filter(Boolean)
-      .join(" | ");
-
-    // ===== בניית שורות המוצרים =====
-    const lineItems = cartItems.map((item) => ({
-      name: item.name,
-      quantity: String(item.quantity),
-      base_price_money: {
-        amount: item.unitAmountCents,
-        currency,
-      },
+    const lineItems = cartItems.map(i => ({
+      name: i.name,
+      quantity: String(i.quantity),
+      base_price_money: { amount: i.unitAmountCents, currency: "USD" }
     }));
 
-    // ===== אין Fulfillment בכלל ====  
-    const order = {
-      location_id: locationId,
-      line_items: lineItems,
-      note: formattedNote,
-    };
+    const order = { location_id: locationId, line_items: lineItems, note: orderNote };
 
-    const checkoutBody = {
-      idempotency_key: crypto.randomUUID(),
+    const body = {
+      idempotency_key: crypto.randomBytes(16).toString("hex"),
       order,
       checkout_options: {
-        redirect_url: `${redirectUrlBase.replace(/\/$/, "")}/success.html`,
-      },
+        redirect_url: `${redirectUrlBase}/success.html`
+      }
     };
 
-    const checkoutRes = await callSquare(
-      "/v2/online-checkout/payment-links",
-      "POST",
-      checkoutBody
-    );
+    const result = await callSquare("/v2/online-checkout/payment-links", "POST", body);
 
-    dailyTotals[pickupDate] = current + requestedQty;
+    if (result.statusCode >= 400 || result.body.errors)
+      return { statusCode: 400, body: JSON.stringify(result.body) };
+
+    // update stock
+    dailyTotals[pickupDate] = used + qty;
 
     return {
       statusCode: 200,
-      body: JSON.stringify(checkoutRes.body),
+      body: JSON.stringify(result.body)
     };
   } catch (err) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        error: "Internal Error",
-        details: err.message,
-      }),
-    };
+    return { statusCode: 500, body: err.message };
   }
 };
