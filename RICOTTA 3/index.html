@@ -716,7 +716,7 @@
       const formData = new FormData(formEl);
 
       const pickupDate = formData.get("date");
-      const pickupTimeLabel = formData.get("time") || "";
+      const pickupTime: formData.get("time"),
 
       if (!pickupDate || !pickupTimeLabel) {
         err.textContent = "Please choose pickup date and time.";
@@ -796,3 +796,4 @@
   </script>
 </body>
 </html>
+
