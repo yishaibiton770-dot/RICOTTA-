@@ -3,7 +3,11 @@ const https = require("https");
 const crypto = require("crypto");
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
-const MAX_DAILY_LIMIT = 250; // מקסימום דונאטס ליום (לפי תאריך איסוף)
+
+// ====== הגבלת מלאי לפי יום ======
+const MAX_DAILY_LIMIT = 250;
+// זיכרון זמני לפי תאריך: { '2025-12-15': 120, ... }
+const dailyTotals = {};
 
 // קריאה כללית ל־Square
 function callSquare(path, method, bodyObj) {
@@ -88,14 +92,18 @@ exports.handler = async (event) => {
       customerName,
       customerPhone,
       customerEmail,
+      subtotalCents,
+      taxCents,
+      totalCents,
     } = JSON.parse(event.body || "{}");
 
-    // ולידציה בסיסית
+    // ---- ולידציה בסיסית ----
     if (
       !cartItems ||
       !Array.isArray(cartItems) ||
       cartItems.length === 0 ||
-      !redirectUrlBase
+      !redirectUrlBase ||
+      !pickupDate
     ) {
       return {
         statusCode: 400,
@@ -105,23 +113,31 @@ exports.handler = async (event) => {
       };
     }
 
-    // מחשבים כמה דונאטס הלקוח מבקש בהזמנה הזאת
+    // ====== ❶ בדיקת מגבלת 250 סופגניות ליום ======
     const requestedQty = cartItems.reduce(
-      (sum, item) => sum + (Number(item.quantity) || 0),
+      (sum, item) => sum + Number(item.quantity || 0),
       0
     );
 
-    if (!pickupDate) {
+    const currentForDay = dailyTotals[pickupDate] || 0;
+    const remaining = MAX_DAILY_LIMIT - currentForDay;
+
+    if (requestedQty > remaining) {
+      // אין מספיק מלאי ליום הזה
       return {
         statusCode: 400,
         body: JSON.stringify({
-          error: "MISSING_PICKUP_DATE",
-          message: "Pickup date is required.",
+          error: "Stock Limit Exceeded",
+          message:
+            remaining > 0
+              ? `We are almost sold out for ${pickupDate}. Only ${remaining} donuts left for that day.`
+              : `We are fully sold out for ${pickupDate}. Please choose another day.`,
+          remaining,
         }),
       };
     }
 
-    // 1) שולפים את רשימת ה-locations מהחשבון שלך ב-Square
+    // ---- ❷ שליפת locationId מ-Square ----
     const locationsRes = await callSquare("/v2/locations", "GET");
     if (locationsRes.statusCode >= 400 || locationsRes.body.errors) {
       console.error("Square locations error:", locationsRes.body);
@@ -145,7 +161,6 @@ exports.handler = async (event) => {
       };
     }
 
-    // בוחרים לוקיישן שיכול לעבד כרטיסי אשראי
     const selectedLocation =
       locations.find((loc) =>
         (loc.capabilities || []).includes("CREDIT_CARD_PROCESSING")
@@ -153,84 +168,7 @@ exports.handler = async (event) => {
 
     const locationId = selectedLocation.id;
 
-    // 2) BEFORE creating the Payment Link – בודקים כמה כבר מוזמן ל־pickupDate הזה
-    //    נשתמש ב-Search Orders API ונפילטר לפי "Pickup: YYYY-MM-DD" בתוך ה-note
-    let alreadyOrderedForThisDate = 0;
-    try {
-      const searchBody = {
-        location_ids: [locationId],
-        query: {
-          filter: {
-            state_filter: {
-              states: ["OPEN", "COMPLETED"], // גם הזמנות פתוחות וגם הושלמו
-            },
-          },
-        },
-      };
-
-      const ordersRes = await callSquare(
-        "/v2/orders/search",
-        "POST",
-        searchBody
-      );
-
-      if (ordersRes.statusCode >= 400 || ordersRes.body.errors) {
-        console.error("Square search orders error:", ordersRes.body);
-        return {
-          statusCode: 500,
-          body: JSON.stringify({
-            error: "AVAILABILITY_CHECK_FAILED",
-            message:
-              "We could not verify today's availability. Please try again in a moment.",
-          }),
-        };
-      }
-
-      const orders = ordersRes.body.orders || [];
-
-      for (const order of orders) {
-        const note = order.note || "";
-        const lineItems = order.line_items || [];
-        // רק הזמנות שה-note שלהן מכיל את אותו תאריך איסוף
-        if (!note.includes(`Pickup: ${pickupDate}`)) continue;
-
-        for (const li of lineItems) {
-          const qty = parseInt(li.quantity || "0", 10);
-          if (!Number.isNaN(qty)) {
-            alreadyOrderedForThisDate += qty;
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Error while checking daily limit:", e);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error: "AVAILABILITY_CHECK_FAILED",
-          message:
-            "We could not verify today's availability. Please try again in a moment.",
-        }),
-      };
-    }
-
-    const remaining = MAX_DAILY_LIMIT - alreadyOrderedForThisDate;
-
-    if (requestedQty > remaining) {
-      // אין מספיק מקום לתאריך הזה
-      return {
-        statusCode: 409,
-        body: JSON.stringify({
-          error: "DAILY_LIMIT_REACHED",
-          remaining: Math.max(0, remaining),
-          message:
-            remaining > 0
-              ? `Only ${remaining} donuts left for ${pickupDate}. Please reduce your quantity or choose another date.`
-              : `We're sold out for ${pickupDate}. Please select another date.`,
-        }),
-      };
-    }
-
-    // 3) בונים את ה-Order לפי העגלה
+    // ---- ❸ בניית ההזמנה ל-Square ----
     const lineItems = cartItems.map((item) => ({
       name: item.name,
       quantity: String(item.quantity || 1),
@@ -240,11 +178,14 @@ exports.handler = async (event) => {
       },
     }));
 
-    const noteParts = [
+    const orderNote = [
       pickupDate && pickupTime ? `Pickup: ${pickupDate} ${pickupTime}` : null,
       customerName ? `Customer: ${customerName}` : null,
       customerPhone ? `Phone: ${customerPhone}` : null,
       customerEmail ? `Email: ${customerEmail}` : null,
+      subtotalCents != null ? `Subtotal: ${(subtotalCents / 100).toFixed(2)}` : null,
+      taxCents != null ? `Tax: ${(taxCents / 100).toFixed(2)}` : null,
+      totalCents != null ? `Total: ${(totalCents / 100).toFixed(2)}` : null,
     ]
       .filter(Boolean)
       .join(" | ");
@@ -252,22 +193,14 @@ exports.handler = async (event) => {
     const order = {
       location_id: locationId,
       line_items: lineItems,
-      note: noteParts,
-      metadata: {
-        pickup_date: pickupDate || "",
-        pickup_time: pickupTime || "",
-        customer_name: customerName || "",
-        customer_phone: customerPhone || "",
-        customer_email: customerEmail || "",
-      },
+      note: orderNote,
     };
 
-    // idempotency key בטוח (גם אם randomUUID לא קיים)
+    // idempotency key בטוח
     const idempotencyKey = crypto.randomUUID
       ? crypto.randomUUID()
       : crypto.randomBytes(16).toString("hex");
 
-    // 4) יוצרים Payment Link
     const checkoutBody = {
       idempotency_key: idempotencyKey,
       order,
@@ -276,6 +209,7 @@ exports.handler = async (event) => {
       },
     };
 
+    // ---- ❹ יצירת לינק לתשלום ב-Square ----
     const checkoutRes = await callSquare(
       "/v2/online-checkout/payment-links",
       "POST",
@@ -290,7 +224,12 @@ exports.handler = async (event) => {
       };
     }
 
-    // מחזירים ל-frontend את האובייקט כולו, ובתוכו payment_link.url
+    // ====== ❺ עדכון המונה ליום רק אחרי שהלינק נוצר בהצלחה ======
+    dailyTotals[pickupDate] = currentForDay + requestedQty;
+    console.log(
+      `Updated total for ${pickupDate}: ${dailyTotals[pickupDate]}/${MAX_DAILY_LIMIT}`
+    );
+
     return {
       statusCode: 200,
       body: JSON.stringify(checkoutRes.body),
