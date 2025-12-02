@@ -283,10 +283,11 @@
                 <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">
                   Date (Dec 15-22)
                 </label>
-                <input type="date" name="date"
-                       min="2025-12-15" max="2025-12-22"
-                       required
-                       class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent">
+            <input type="date" name="date"
+       min="2025-12-15" max="2025-12-22"
+       required
+       onchange="validatePickupDate(this)"
+       class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent">
               </div>
 
               <div class="space-y-2">
@@ -666,112 +667,135 @@
       renderModalCart();
     });
 
+function validatePickupDate(input) {
+  if (!input || !input.value) return;
 
+  const value = input.value;
+
+  // חסימה ספציפית של 17 בדצמבר
+  if (value === "2025-12-17") {
+    alert("לא ניתן לבצע הזמנות בתאריך זה. בחר יום אחר.");
+    input.value = "";
+    return;
+  }
+
+  // חסימת שבת – 6 = Saturday
+  const d = new Date(value + "T12:00:00");
+  const day = d.getUTCDay(); // 0=Sunday ... 6=Saturday
+  if (day === 6) {
+    alert("לא ניתן לבצע הזמנות לשבת. בחר יום אחר.");
+    input.value = "";
+  }
+}
 
 /* -----------------------------------
       PROCESS PAYMENT — CLEAN
   ----------------------------------- */
-  async function processPayment() {
-    const btn = document.getElementById("btn-pay");
-    const err = document.getElementById("error-msg");
+  /* -----------------------------------
+  PROCESS PAYMENT — WITH PICKUP INFO
+----------------------------------- */
+async function processPayment() {
+  const btn = document.getElementById("btn-pay");
+  const err = document.getElementById("error-msg");
 
-    err.classList.add("hidden");
-    err.textContent = "";
+  err.classList.add("hidden");
+  err.textContent = "";
 
-    const items = Object.values(cart || {});
-    if (!items.length) {
-      err.textContent = "Your box is empty.";
-      err.classList.remove("hidden");
-      return;
-    }
+  const items = Object.values(cart || {});
+  if (!items.length) {
+    err.textContent = "Your box is empty.";
+    err.classList.remove("hidden");
+    return;
+  }
 
-    const form = document.getElementById("order-form");
-    const formData = new FormData(form);
+  const formEl = document.getElementById("order-form");
+  const formData = new FormData(formEl);
 
-    const date = formData.get("date");
-    const timeRange = formData.get("time");
+  const pickupDate = formData.get("date");
+  const pickupTimeLabel = formData.get("time") || "";
 
-    if (!date || !timeRange) {
-      err.textContent = "Please choose pickup date & time.";
-      err.classList.remove("hidden");
-      return;
-    }
+  if (!pickupDate || !pickupTimeLabel) {
+    err.textContent = "Please choose pickup date and time.";
+    err.classList.remove("hidden");
+    return;
+  }
 
-    // "10:00 - 11:00" → start/end ISO
-    const [startTime, endTime] = timeRange.split(" - ").map((s) => s.trim());
+  // בונה חלון איסוף מ"הטווח" שנבחר (למשל 10:00 - 11:00)
+  const [fromStr, toStr] = pickupTimeLabel.split("-").map((s) => s.trim());
+  const pickupWindow = {
+    start: `${pickupDate}T${fromStr}:00`,
+    end: `${pickupDate}T${toStr}:00`,
+  };
 
-    const pickupWindow = {
-      start: `${date}T${startTime}:00`,
-      end: `${date}T${endTime}:00`,
+  btn.disabled = true;
+  btn.innerText = "Processing...";
+
+  try {
+    const payload = {
+      cartItems: items.map((i) => ({
+        name: i.name,
+        quantity: i.qty,
+        unitAmountCents: Math.round(i.price * 100),
+      })),
+      currency: "USD",
+      redirectUrlBase: window.location.origin,
+      pickupDate,
+      pickupWindow,
+      customerName: formData.get("name"),
+      customerPhone: formData.get("phone"),
+      customerEmail: formData.get("email"),
+      notes: formData.get("notes") || "",
     };
 
-    btn.disabled = true;
-    btn.innerText = "Processing...";
+    const res = await fetch("/.netlify/functions/create-checkout-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
+    const text = await res.text();
+    let data;
     try {
-      const payload = {
-        cartItems: items.map((i) => ({
-          name: i.name,
-          quantity: i.qty,
-          unitAmountCents: Math.round(i.price * 100),
-        })),
-        redirectUrlBase: window.location.origin,
-        pickupDate: date,
-        pickupWindow, // מה שהפונקציה ב- Netlify מצפה
-        customerName: formData.get("name"),
-        customerPhone: formData.get("phone"),
-        customerEmail: formData.get("email"),
-        notes: formData.get("notes") || "",
-      };
-
-      const res = await fetch("/.netlify/functions/create-checkout-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      // קוראים את הגוף פעם אחת בלבד
-      const raw = await res.text();
-      let data = null;
-      try {
-        data = raw ? JSON.parse(raw) : null;
-      } catch (e) {
-        console.warn("Response is not valid JSON:", raw);
-      }
-
-      if (!res.ok) {
-        const msg =
-          data?.error ||
-          data?.message ||
-          (data?.errors && data.errors[0]?.detail) ||
-          raw ||
-          "Error creating checkout link.";
-        err.textContent = msg;
-        err.classList.remove("hidden");
-        return;
-      }
-
-      if (!data || !data.payment_link || !data.payment_link.url) {
-        console.error("Invalid response from server:", data || raw);
-        err.textContent = "Server response is missing payment link.";
-        err.classList.remove("hidden");
-        return;
-      }
-
-      window.location.href = data.payment_link.url;
-    } catch (e) {
-      console.error("Checkout error:", e);
-      err.textContent = e.message || "Unexpected error.";
-      err.classList.remove("hidden");
-    } finally {
-      btn.disabled = false;
-      btn.innerText = "Proceed to Payment";
+      data = JSON.parse(text);
+    } catch {
+      data = null;
     }
+
+    if (!res.ok) {
+      const msg =
+        data?.error ||
+        data?.message ||
+        (Array.isArray(data?.errors) && data.errors[0]?.detail) ||
+        "There was a problem creating the payment link. Please try again.";
+      err.textContent = msg;
+      err.classList.remove("hidden");
+      console.error("Checkout error (server response):", text);
+      return;
+    }
+
+    if (!data || !data.payment_link || !data.payment_link.url) {
+      err.textContent = "Unexpected server response. Please contact the store.";
+      err.classList.remove("hidden");
+      console.error("Invalid function response:", text);
+      return;
+    }
+
+    // הכל טוב – מעביר ל־Square כדי לשלם
+    window.location.href = data.payment_link.url;
+  } catch (e) {
+    console.error("Checkout error:", e);
+    err.textContent = "Unexpected error. Please try again.";
+    err.classList.remove("hidden");
+  } finally {
+    btn.disabled = false;
+    btn.innerText = "Proceed to Payment";
   }
+  
   </script>
 
 </body>
 </html>
+
 
 
 
