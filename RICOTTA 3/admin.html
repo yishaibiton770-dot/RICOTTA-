@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RICOTTA ADMIN</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      background: #F9F8F6;
+      font-family: "Playfair Display", serif;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center">
+
+  <!-- LOGIN SCREEN -->
+  <div id="login-screen" class="w-full max-w-sm p-8 bg-white shadow-xl border border-gray-200 rounded-lg">
+    <h1 class="text-3xl text-center mb-6 tracking-[0.2em]">ADMIN</h1>
+
+    <input id="admin-password" type="password"
+           placeholder="Enter password"
+           class="w-full p-3 border border-gray-300 rounded mb-4">
+
+    <button onclick="loginAdmin()"
+            class="w-full bg-black text-white py-3 rounded tracking-[0.2em] hover:bg-gray-800">
+      LOGIN
+    </button>
+
+    <p id="login-error" class="text-red-600 text-center mt-3 hidden">
+      Wrong Password
+    </p>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="admin-panel" class="hidden w-full p-10">
+
+    <h1 class="text-5xl mb-10 text-center tracking-[0.2em]">RICOTTA ADMIN</h1>
+
+    <!-- SUMMARY BOXES -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12" id="summary-boxes"></div>
+
+    <!-- ORDERS -->
+    <div class="bg-white p-8 rounded-lg shadow-xl border border-gray-200">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-3xl tracking-[0.1em]">Paid Orders From Square</h2>
+        <button onclick="loadOrders()"
+                class="px-5 py-2 bg-black text-white rounded tracking-widest hover:bg-gray-800">
+          Refresh
+        </button>
+      </div>
+
+      <div id="orders-list" class="space-y-4">
+        <div class="text-gray-500 italic">Loading…</div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+/* ----------------------- AUTH ------------------------- */
+function loginAdmin() {
+  const pass = document.getElementById("admin-password").value.trim();
+
+  // סיסמה (תשנה למה שאתה רוצה)
+  if (pass === "ricotta999") {
+    document.getElementById("login-screen").classList.add("hidden");
+    document.getElementById("admin-panel").classList.remove("hidden");
+    initDashboard();
+  } else {
+    document.getElementById("login-error").classList.remove("hidden");
+  }
+}
+
+/* ----------------------- CONFIG ------------------------ */
+
+const DAILY_LIMIT = 250;
+
+const SUPABASE_URL = "https://jzadvxcgkgyyupgemphf.supabase.co";
+const SUPABASE_KEY = "YOUR_SERVICE_KEY_HERE"; // ← תחליף כאן!
+
+const SQUARE_TOKEN = "YOUR_SQUARE_TOKEN_HERE"; // ← תחליף כאן!
+const SQUARE_LOCATION_ID = "L54AH5T8V5HVN";
+
+/* ----------------------- INITIAL LOAD ------------------------ */
+function initDashboard() {
+  loadDailySummary();
+  loadOrders();
+}
+
+/* ----------------------- LOAD DAILY SUMMARY ------------------------ */
+async function loadDailySummary() {
+  const days = [
+    "2025-12-15","2025-12-16","2025-12-17","2025-12-18",
+    "2025-12-19","2025-12-20","2025-12-21","2025-12-22"
+  ];
+
+  const boxContainer = document.getElementById("summary-boxes");
+  boxContainer.innerHTML = "";
+
+  for (const date of days) {
+    const used = await getUsedByDate(date);
+    const remaining = DAILY_LIMIT - used;
+
+    boxContainer.innerHTML += `
+      <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200 text-center">
+        <h3 class="text-xl font-semibold mb-2">${date}</h3>
+        <p class="text-3xl font-bold">${used} / ${DAILY_LIMIT}</p>
+        <p class="text-gray-500 mt-2">${remaining} Remaining</p>
+      </div>
+    `;
+  }
+}
+
+/* ----------------------- GET USED FROM SUPABASE ------------------------ */
+async function getUsedByDate(date) {
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/daily_inventory?date=eq.${date}&select=used_quantity`,
+      {
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+        },
+      }
+    );
+
+    const rows = await res.json();
+    if (!rows.length) return 0;
+
+    return rows[0].used_quantity || 0;
+
+  } catch (err) {
+    console.error("Supabase error:", err);
+    return 0;
+  }
+}
+
+/* ----------------------- LOAD ORDERS FROM SQUARE ------------------------ */
+async function loadOrders() {
+  const container = document.getElementById("orders-list");
+  container.innerHTML = "<div class='text-gray-500 italic'>Loading…</div>";
+
+  try {
+    const res = await fetch(
+      `https://connect.squareup.com/v2/payments?location_id=${SQUARE_LOCATION_ID}`,
+      {
+        headers: {
+          Authorization: `Bearer ${SQUARE_TOKEN}`,
+          "Square-Version": "2025-01-15",
+        },
+      }
+    );
+
+    const data = await res.json();
+    const list = data.payments || [];
+
+    container.innerHTML = "";
+
+    list
+      .filter(o => o.status === "COMPLETED")
+      .forEach(order => {
+        container.innerHTML += `
+          <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <p class="font-bold">Order ID: ${order.order_id}</p>
+            <p>Amount: $${(order.total_money.amount / 100).toFixed(2)}</p>
+            <p>Date: ${order.created_at}</p>
+            <p class="text-sm text-gray-600">Customer: ${order.card_details?.card?.cardholder_name || "N/A"}</p>
+          </div>
+        `;
+      });
+
+  } catch (err) {
+    container.innerHTML = `<div class="text-red-600">Error loading orders</div>`;
+    console.error(err);
+  }
+}
+
+</script>
+
+</body>
+</html>
