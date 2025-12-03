@@ -1,10 +1,12 @@
 // netlify/functions/square-webhook.js
+
 const https = require("https");
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// קריאה ל־Square
 function callSquare(path, method, bodyObj) {
   return new Promise((resolve, reject) => {
     const body = bodyObj ? JSON.stringify(bodyObj) : null;
@@ -41,167 +43,181 @@ function callSquare(path, method, bodyObj) {
   });
 }
 
-async function supabaseFetch(path, options = {}) {
-  const headers = {
-    apikey: SUPABASE_SERVICE_KEY,
-    Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
-    ...(options.headers || {}),
-  };
+// קריאה ל־Supabase REST
+function callSupabase(path, method, bodyObj, extraHeaders = {}) {
+  return new Promise((resolve, reject) => {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      return reject(new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY"));
+    }
 
-  const res = await fetch(`${SUPABASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+    const url = new URL(path, SUPABASE_URL);
+    const body = bodyObj ? JSON.stringify(bodyObj) : null;
 
-  return res;
-}
-
-async function getInventoryRow(pickupDate) {
-  const res = await supabaseFetch(
-    `/rest/v1/daily_inventory?select=date,total_donuts&date=eq.${pickupDate}`
-  );
-
-  if (!res.ok) {
-    const txt = await res.text();
-    console.error("Supabase getInventoryRow error:", txt);
-    throw new Error("Supabase getInventoryRow failed");
-  }
-
-  const rows = await res.json();
-  if (!rows.length) {
-    return { total: 0, exists: false };
-  }
-  return { total: rows[0].total_donuts || 0, exists: true };
-}
-
-async function addPaidDonuts(pickupDate, donuts, paymentId) {
-  // קודם רושמים את התשלום בטבלת square_payments – כדי לא לספור פעמיים
-  const payRes = await supabaseFetch("/rest/v1/square_payments", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Prefer: "resolution=ignore-duplicates" },
-    body: JSON.stringify([
-      {
-        payment_id: paymentId,
-        pickup_date: pickupDate,
-        donuts,
+    const options = {
+      method,
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+        ...extraHeaders,
       },
-    ]),
-  });
+    };
 
-  if (!payRes.ok) {
-    const txt = await payRes.text();
-    console.error("Supabase insert square_payments error:", txt);
-    // אם כבר קיים – לא נמשיך (כדי לא לספור פעמיים)
-    return;
-  }
-
-  // עכשיו מעדכנים את ה־daily_inventory
-  const { total, exists } = await getInventoryRow(pickupDate);
-  const newTotal = total + donuts;
-
-  if (!exists) {
-    const ins = await supabaseFetch("/rest/v1/daily_inventory", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify([{ date: pickupDate, total_donuts: newTotal }]),
+    const req = https.request(url, options, (res) => {
+      let data = "";
+      res.on("data", (chunk) => (data += chunk));
+      res.on("end", () => {
+        let json;
+        try {
+          json = JSON.parse(data);
+        } catch {
+          json = { raw: data };
+        }
+        resolve({ statusCode: res.statusCode, body: json });
+      });
     });
 
-    if (!ins.ok) {
-      const txt = await ins.text();
-      console.error("Supabase insert daily_inventory error:", txt);
-    }
-  } else {
-    const upd = await supabaseFetch(
-      `/rest/v1/daily_inventory?date=eq.${pickupDate}`,
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ total_donuts: newTotal }),
-      }
-    );
+    req.on("error", reject);
 
-    if (!upd.ok) {
-      const txt = await upd.text();
-      console.error("Supabase update daily_inventory error:", txt);
-    }
-  }
+    if (body) req.write(body);
+    req.end();
+  });
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 405, body: "Method Not Allowed" };
-  }
-
-  if (!SQUARE_ACCESS_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    console.error("Missing env vars");
-    return { statusCode: 500, body: "Missing configuration" };
-  }
-
-  let body;
   try {
-    body = JSON.parse(event.body || "{}");
-  } catch (e) {
-    console.error("Invalid JSON in webhook:", e);
-    return { statusCode: 400, body: "Invalid JSON" };
-  }
-
-  const type = body.type || body.event_type;
-  const payment = body.data?.object?.payment;
-
-  // אנחנו מטפלים רק ב־payment.updated / payment.created עם status COMPLETED
-  if (
-    !payment ||
-    !["payment.updated", "payment.created"].includes(type) ||
-    payment.status !== "COMPLETED"
-  ) {
-    return { statusCode: 200, body: "Ignored" };
-  }
-
-  const paymentId = payment.id;
-  const orderId = payment.order_id || payment.orderIds?.[0];
-
-  if (!orderId) {
-    console.error("No order_id on payment:", payment);
-    return { statusCode: 200, body: "No order_id" };
-  }
-
-  try {
-    // מושכים את ההזמנה המלאה
-    const orderRes = await callSquare(`/v2/orders/${orderId}`, "GET");
-    if (orderRes.statusCode >= 400 || orderRes.body.errors) {
-      console.error("Square get order error:", orderRes.body);
-      return { statusCode: 500, body: "Order fetch error" };
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, body: "Method Not Allowed" };
     }
 
-    const order = orderRes.body.order;
+    if (!SQUARE_ACCESS_TOKEN) {
+      console.error("Missing SQUARE_ACCESS_TOKEN");
+      return { statusCode: 500, body: "Square token not configured" };
+    }
+
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.error("Missing Supabase env vars");
+      return { statusCode: 500, body: "Supabase not configured" };
+    }
+
+    let body;
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch (e) {
+      console.error("Failed to parse webhook body:", e);
+      return { statusCode: 400, body: "Invalid JSON" };
+    }
+
+    const eventType = body.type;
+    const payment = body.data?.object?.payment;
+
+    // אנחנו עובדים רק על אירועים של תשלום
+    if (!payment || !eventType || !eventType.startsWith("payment.")) {
+      return { statusCode: 200, body: "Ignored: not a payment event" };
+    }
+
+    // סופרים רק תשלום שהושלם
+    if (payment.status !== "COMPLETED") {
+      return { statusCode: 200, body: "Ignored: payment not completed" };
+    }
+
+    const orderId = payment.order_id;
+    if (!orderId) {
+      console.error("No order_id on payment");
+      return { statusCode: 200, body: "No order_id, nothing to do" };
+    }
+
+    // 1) מושכים את ההזמנה המלאה מ־Square
+    const orderResult = await callSquare(`/v2/orders/${orderId}`, "GET");
+    if (orderResult.statusCode >= 400 || !orderResult.body.order) {
+      console.error("Error fetching order:", orderResult.body);
+      return { statusCode: 200, body: "Could not fetch order" };
+    }
+
+    const order = orderResult.body.order;
     const lineItems = order.line_items || [];
     const fulfillments = order.fulfillments || [];
 
-    // נספר רק שורות שמוכרות סופגניות (amount > 0)
-    let donuts = 0;
+    // 2) מפענחים תאריך איסוף מה־pickup_at שלנו
+    let pickupDate = null;
+    if (
+      fulfillments.length &&
+      fulfillments[0].pickup_details &&
+      fulfillments[0].pickup_details.pickup_at
+    ) {
+      const pickupAt = fulfillments[0].pickup_details.pickup_at; // לדוגמה: 2025-12-18T10:00:00-05:00
+      pickupDate = pickupAt.substring(0, 10); // "YYYY-MM-DD"
+    }
+
+    if (!pickupDate) {
+      console.error("No pickupDate found on order", orderId);
+      return { statusCode: 200, body: "No pickup date, nothing to update" };
+    }
+
+    // 3) מחשבים כמה סופגניות בפועל (מדלגים על שורות אינפו / 0 דולר)
+    let totalQty = 0;
     for (const li of lineItems) {
-      const amount = Number(li.base_price_money?.amount ?? 0);
-      const qty = parseInt(li.quantity || "0", 10);
-      if (amount > 0 && qty > 0) {
-        donuts += qty;
+      const amt = li.base_price_money?.amount || 0;
+      if (!amt) continue; // שורות $0 כמו Pickup Details – לא נספר
+
+      const q = parseInt(li.quantity || "0", 10);
+      if (!isNaN(q) && q > 0) {
+        totalQty += q;
       }
     }
 
-    const f = fulfillments[0];
-    const pickupAt = f?.pickup_details?.pickup_at || null;
-    const pickupDate = pickupAt ? pickupAt.slice(0, 10) : null; // YYYY-MM-DD
-
-    if (!pickupDate || !donuts) {
-      console.error("Missing pickupDate or donuts", { pickupDate, donuts });
-      return { statusCode: 200, body: "Missing data" };
+    if (!totalQty) {
+      console.log("Order has no paid donuts, skipping", orderId);
+      return { statusCode: 200, body: "No quantity to add" };
     }
 
-    // עדכון Supabase – רק אחרי שהתשלום COMPLETED
-    await addPaidDonuts(pickupDate, donuts, paymentId);
+    console.log(`Counting ${totalQty} donuts for date ${pickupDate}`);
+
+    // 4) מושכים את השורה הקיימת ליום הזה מ־daily_inventory
+    const selectRes = await callSupabase(
+      `/rest/v1/daily_inventory?date=eq.${pickupDate}&select=used_quantity&limit=1`,
+      "GET"
+    );
+
+    if (selectRes.statusCode >= 400) {
+      console.error("Supabase select error:", selectRes.body);
+      return { statusCode: 500, body: "Supabase select error" };
+    }
+
+    const rows = Array.isArray(selectRes.body) ? selectRes.body : [];
+    const currentUsed = rows.length ? rows[0].used_quantity || 0 : 0;
+    const newUsed = currentUsed + totalQty;
+
+    // 5) upsert – אם יש שורה מעדכן, אם אין – יוצר
+    const upsertBody = {
+      date: pickupDate,
+      used_quantity: newUsed,
+    };
+
+    const upsertRes = await callSupabase(
+      "/rest/v1/daily_inventory",
+      "POST",
+      upsertBody,
+      {
+        Prefer: "resolution=merge-duplicates",
+      }
+    );
+
+    if (upsertRes.statusCode >= 400) {
+      console.error("Supabase upsert error:", upsertRes.body);
+      return { statusCode: 500, body: "Supabase upsert error" };
+    }
+
+    console.log(
+      `Updated daily_inventory for ${pickupDate}: ${currentUsed} -> ${newUsed}`
+    );
 
     return { statusCode: 200, body: "OK" };
-  } catch (e) {
-    console.error("Webhook handler error:", e);
-    return { statusCode: 500, body: "Server error" };
+  } catch (err) {
+    console.error("Webhook handler error:", err);
+    return {
+      statusCode: 500,
+      body: "Internal error",
+    };
   }
 };
