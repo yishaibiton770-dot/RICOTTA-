@@ -2,16 +2,13 @@
 const https = require("https");
 const crypto = require("crypto");
 
-// ----- SQUARE -----
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
 const LOCATION_ID = process.env.SQUARE_LOCATION_ID || "L54AH5T8V5HVN";
-const TAX_PERCENT = "8.875"; // אחוז מס בסקוור
 
-// ----- SUPABASE (קריאה בלבד למלאי) -----
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// מס בסקוור
+const TAX_PERCENT = "8.875";
 
-// כמה סופגניות מותר ביום
+// מקסימום סופגניות ליום
 const DAILY_LIMIT = 250;
 
 function callSquare(path, method, bodyObj) {
@@ -50,34 +47,64 @@ function callSquare(path, method, bodyObj) {
   });
 }
 
-// ----- כמה כבר "נצרך" ליום מסוים (סופגניות ששולמו) -----
-async function getUsedQuantityForDate(dateStr) {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    console.warn("Supabase env not set, skipping availability check");
-    return 0;
-  }
+/**
+ * סופר כמה סופגניות כבר נמכרו (COMPLETED) ל-pickupDate מסוים
+ * לפי ה-fulfillment pickup_details.pickup_at
+ */
+async function getUsedUnitsForDate(pickupDate) {
+  if (!pickupDate) return 0;
 
-  const url = `${SUPABASE_URL}/rest/v1/daily_inventory?date=eq.${dateStr}&select=used_quantity`;
+  // מחפשים בחודש של התאריך (כדי לכלול הזמנות שנעשו מראש)
+  const monthPrefix = pickupDate.slice(0, 7); // "2025-12"
+  const start_at = `${monthPrefix}-01T00:00:00-05:00`;
+  const end_at = `${monthPrefix}-31T23:59:59-05:00`;
 
-  const res = await fetch(url, {
-    headers: {
-      apikey: SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      Accept: "application/json",
+  const body = {
+    location_ids: [LOCATION_ID],
+    query: {
+      filter: {
+        state_filter: {
+          states: ["COMPLETED"],
+        },
+        date_time_filter: {
+          created_at: {
+            start_at,
+            end_at,
+          },
+        },
+      },
     },
-  });
+  };
 
-  const data = await res.json().catch(() => []);
+  const result = await callSquare("/v2/orders/search", "POST", body);
 
-  if (!res.ok) {
-    console.error("Supabase error:", data);
-    // אם יש בעיה ב־Supabase – לא לחסום לקוח, רק להחזיר 0
-    return 0;
+  if (result.statusCode >= 400 || result.body.errors) {
+    console.error("Square orders error (inventory check):", result.body);
+    throw new Error(
+      result.body.errors?.[0]?.detail ||
+        "Error checking daily inventory from Square"
+    );
   }
 
-  if (!Array.isArray(data) || data.length === 0) return 0;
-  const row = data[0];
-  return typeof row.used_quantity === "number" ? row.used_quantity : 0;
+  const orders = result.body.orders || [];
+  let totalUnits = 0;
+
+  for (const order of orders) {
+    const fulfill = (order.fulfillments && order.fulfillments[0]) || null;
+    const pickupAt = fulfill?.pickup_details?.pickup_at || null;
+    if (!pickupAt) continue;
+
+    const orderPickupDate = pickupAt.slice(0, 10); // yyyy-mm-dd
+    if (orderPickupDate !== pickupDate) continue;
+
+    for (const li of order.line_items || []) {
+      if (li.name === "Pickup Details") continue; // לא סופרים שורת מידע
+      const q = parseInt(li.quantity || "0", 10);
+      if (!isNaN(q)) totalUnits += q;
+    }
+  }
+
+  return totalUnits;
 }
 
 exports.handler = async (event) => {
@@ -98,7 +125,7 @@ exports.handler = async (event) => {
       redirectUrlBase,
       pickupDate,
       pickupTime, // "10:00 - 11:00"
-      pickupWindow, // אופציונלי לעתיד
+      pickupWindow, // { from: "10:00", to: "11:00" } - לא חובה
       customerName,
       customerPhone,
       customerEmail,
@@ -108,48 +135,40 @@ exports.handler = async (event) => {
     if (!cartItems || !cartItems.length) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "Your box is empty." }),
+        body: JSON.stringify({ error: "cartItems is required" }),
       };
     }
+
+    /* ---------- כמה סופגניות מבוקשות עכשיו ---------- */
+    const requestedUnits = cartItems.reduce((sum, item) => {
+      const q = parseInt(item.quantity || 0, 10);
+      return sum + (isNaN(q) ? 0 : q);
+    }, 0);
 
     if (!pickupDate) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "Pickup date is required." }),
+        body: JSON.stringify({ error: "pickupDate is required" }),
       };
     }
 
-    // ====== בדיקת מלאי יומי ב־Supabase ======
-    const requestedQty = cartItems.reduce(
-      (sum, item) => sum + Number(item.quantity || 0),
-      0
-    );
-
-    const alreadyUsed = await getUsedQuantityForDate(pickupDate);
+    /* ---------- בדיקת LIMIT יומי לפני יצירת לינק ---------- */
+    const alreadyUsed = await getUsedUnitsForDate(pickupDate);
     const remaining = DAILY_LIMIT - alreadyUsed;
 
-    if (remaining <= 0) {
+    if (requestedUnits > remaining) {
       return {
-        statusCode: 409,
+        statusCode: 400,
         body: JSON.stringify({
-          error: "SOLD_OUT",
-          message:
-            "We’re fully booked for this day. Please choose another date.",
+          error:
+            remaining > 0
+              ? `We only have ${remaining} donuts left for this day. Please reduce the quantity or choose another date.`
+              : "We’re fully booked for this day. Please choose another date.",
         }),
       };
     }
 
-    if (requestedQty > remaining) {
-      return {
-        statusCode: 409,
-        body: JSON.stringify({
-          error: "LIMIT_EXCEEDED",
-          message: `We only have ${remaining} donuts left for this day. Please reduce the quantity or choose another date.`,
-        }),
-      };
-    }
-
-    // ====== מפה – אותו לוגיקה ישנה שעבדה לך ======
+    /* ---------- תיאור איסוף לטיקט ---------- */
     let pickupLabel = "";
     let pickupAt = null;
 
@@ -177,7 +196,7 @@ exports.handler = async (event) => {
           ? pickupTime.match(/^(\d{2}:\d{2})/)[1]
           : "10:00");
 
-      pickupAt = `${pickupDate}T${fromStr}:00-05:00`;
+      pickupAt = `${pickupDate}T${fromStr}:00-05:00`; // ניו יורק
     } else if (pickupDate) {
       pickupLabel = `Pickup: ${pickupDate}`;
     }
@@ -192,15 +211,26 @@ exports.handler = async (event) => {
 
     const infoText = infoLines.join("\n");
 
+    /* ---------- שורות מוצרים ---------- */
     const lineItems = cartItems.map((item) => ({
       name: item.name,
       quantity: String(item.quantity),
       base_price_money: {
-        amount: Math.round(item.unitAmountCents),
+        amount: Math.round(item.unitAmountCents), // לפני מס
         currency,
       },
     }));
 
+    if (infoText) {
+      lineItems.push({
+        name: "Pickup Details",
+        quantity: "1",
+        base_price_money: { amount: 0, currency },
+        note: infoText,
+      });
+    }
+
+    /* ---------- Fulfillment לדשבורד ---------- */
     const fulfillments = pickupAt
       ? [
           {
@@ -220,6 +250,7 @@ exports.handler = async (event) => {
         ]
       : undefined;
 
+    /* ---------- TAX אמיתי בסקוור ---------- */
     const order = {
       location_id: LOCATION_ID,
       line_items: lineItems,
@@ -272,10 +303,7 @@ exports.handler = async (event) => {
     console.error("Function error:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({
-        error: err.message || "Unexpected server error",
-      }),
+      body: JSON.stringify({ error: err.message || "Unexpected server error" }),
     };
   }
 };
-
