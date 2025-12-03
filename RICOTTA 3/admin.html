@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>RICOTTA ADMIN</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet">
 
   <style>
     body {
@@ -14,76 +14,58 @@
     }
   </style>
 </head>
+
 <body class="min-h-screen flex items-center justify-center">
 
-  <!-- LOGIN -->
+  <!-- LOGIN SCREEN -->
   <div id="login-screen" class="w-full max-w-sm p-8 bg-white shadow-xl border border-gray-200 rounded-lg">
     <h1 class="text-3xl text-center mb-6 tracking-[0.2em]">ADMIN</h1>
 
-    <input
-      id="admin-password"
-      type="password"
-      placeholder="Enter password"
-      class="w-full p-3 border border-gray-300 rounded mb-4"
-    />
+    <input id="admin-password" type="password"
+           placeholder="Enter password"
+           class="w-full p-3 border border-gray-300 rounded mb-4">
 
-    <button
-      onclick="loginAdmin()"
-      class="w-full bg-black text-white py-3 rounded tracking-[0.2em] hover:bg-gray-800"
-    >
+    <button onclick="loginAdmin()"
+            class="w-full bg-black text-white py-3 rounded tracking-[0.2em] hover:bg-gray-800">
       LOGIN
     </button>
 
     <p id="login-error" class="text-red-600 text-center mt-3 hidden">
-      Wrong password
+      Wrong Password
     </p>
   </div>
 
   <!-- DASHBOARD -->
-  <div id="admin-panel" class="hidden w-full min-h-screen p-6 md:p-10">
+  <div id="admin-panel" class="hidden w-full p-10">
 
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-10">
-      <h1 class="text-4xl md:text-5xl tracking-[0.2em] text-center md:text-left">
-        RICOTTA ADMIN
-      </h1>
-      <div class="text-sm text-gray-600 text-center md:text-right space-y-1">
-        <div id="last-refresh">Last refresh: –</div>
-        <button
-          onclick="loadOrders(true)"
-          class="px-4 py-2 bg-black text-white rounded tracking-[0.15em] hover:bg-gray-800 text-xs"
-        >
-          REFRESH NOW
-        </button>
-      </div>
-    </div>
+    <h1 class="text-5xl mb-10 text-center tracking-[0.2em]">RICOTTA ADMIN</h1>
 
     <!-- SUMMARY BOXES -->
-    <div
-      id="summary-boxes"
-      class="grid grid-cols-1 md:grid-cols-4 xl:grid-cols-8 gap-4 mb-10"
-    ></div>
+    <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-4 gap-8 mb-12" id="summary-boxes"></div>
 
-    <!-- ORDERS LIST -->
-    <div class="bg-white p-6 md:p-8 rounded-lg shadow-xl border border-gray-200">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <h2 class="text-2xl md:text-3xl tracking-[0.1em]">
-          Paid Orders From Square
-        </h2>
-        <span class="text-xs text-gray-500">
-          Showing COMPLETED orders between Dec 15–22, 2025
-        </span>
+    <!-- ORDERS -->
+    <div class="bg-white p-8 rounded-lg shadow-xl border border-gray-200 max-w-5xl mx-auto">
+      <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+        <h2 class="text-3xl tracking-[0.1em]">Paid Orders From Square</h2>
+        <button onclick="loadOrders()"
+                class="px-5 py-2 bg-black text-white rounded tracking-widest hover:bg-gray-800 text-sm">
+          Refresh
+        </button>
       </div>
 
       <div id="orders-list" class="space-y-4">
         <div class="text-gray-500 italic">Loading…</div>
       </div>
     </div>
+
   </div>
 
 <script>
-/* ----------------------- SIMPLE AUTH ----------------------- */
+/* ----------------------- AUTH ------------------------- */
 function loginAdmin() {
   const pass = document.getElementById("admin-password").value.trim();
+
+  // סיסמה (תשנה למה שאתה רוצה)
   if (pass === "ricotta999") {
     document.getElementById("login-screen").classList.add("hidden");
     document.getElementById("admin-panel").classList.remove("hidden");
@@ -93,216 +75,143 @@ function loginAdmin() {
   }
 }
 
-/* ----------------------- CONFIG ----------------------------- */
+/* ----------------------- GLOBAL DATA ------------------------ */
+let ADMIN_DATA = {
+  daysSummary: [],
+  orders: []
+};
 
-const DAILY_LIMIT = 250;
-
-const DAYS = [
-  "2025-12-15","2025-12-16","2025-12-17","2025-12-18",
-  "2025-12-19","2025-12-20","2025-12-21","2025-12-22"
-];
-
-/* ----------------------- GLOBAL STATE ----------------------- */
-let ORDERS_CACHE = [];
-let LAST_REFRESH_AT = null;
-let AUTO_REFRESH_TIMER = null;
-
-/* ----------------------- INIT ------------------------------ */
+/* ----------------------- INIT ------------------------ */
 async function initDashboard() {
-  await loadOrders(true);
-  // רענון אוטומטי כל 60 שניות
-  AUTO_REFRESH_TIMER = setInterval(() => loadOrders(false), 60000);
-}
+  const boxes = document.getElementById("summary-boxes");
+  const ordersList = document.getElementById("orders-list");
 
-/* ----------------------- LOAD ORDERS ------------------------ */
-async function loadOrders(showSpinner) {
-  const ordersContainer = document.getElementById("orders-list");
-  const summaryContainer = document.getElementById("summary-boxes");
-
-  if (showSpinner && ordersContainer) {
-    ordersContainer.innerHTML = "<div class='text-gray-500 italic'>Loading…</div>";
-  }
+  boxes.innerHTML = `
+    <div class="col-span-4 text-center text-gray-500 italic">
+      Loading data from Square…
+    </div>
+  `;
+  ordersList.innerHTML = `<div class="text-gray-500 italic">Loading…</div>`;
 
   try {
-    const res = await fetch("/.netlify/functions/get-paid-orders");
-    const data = await res.json();
-
-    if (!res.ok || data.error) {
-      console.error("Admin orders error:", data);
-      if (ordersContainer) {
-        ordersContainer.innerHTML =
-          "<div class='text-red-600'>Error loading data from Square. Check token / permissions.</div>";
-      }
-      if (summaryContainer) {
-        summaryContainer.innerHTML =
-          "<div class='col-span-4 text-red-600 text-center'>Error loading data</div>";
-      }
-      return;
-    }
-
-    ORDERS_CACHE = data.orders || [];
-    LAST_REFRESH_AT = new Date();
-
+    await fetchAdminData();
     renderDailySummary();
     renderOrdersList();
-    renderLastRefresh();
   } catch (err) {
-    console.error("Load orders error:", err);
-    if (ordersContainer) {
-      ordersContainer.innerHTML =
-        "<div class='text-red-600'>Unexpected error loading orders.</div>";
-    }
-  }
-}
-
-/* ----------------------- UTIL: BUILD COUNTS ----------------- */
-function buildCountsByPickupDate() {
-  const map = {};
-
-  for (const order of ORDERS_CACHE) {
-    const fulfill = (order.fulfillments && order.fulfillments[0]) || null;
-    const pickupAt = fulfill?.pickup_details?.pickup_at || null;
-    if (!pickupAt) continue;
-
-    const pickupDate = pickupAt.slice(0, 10);
-
-    let donutsInOrder = 0;
-    for (const li of order.line_items || []) {
-      if (li.name === "Pickup Details") continue;
-      const q = parseInt(li.quantity || "0", 10);
-      if (!isNaN(q)) donutsInOrder += q;
-    }
-
-    if (!map[pickupDate]) map[pickupDate] = 0;
-    map[pickupDate] += donutsInOrder;
-  }
-
-  return map;
-}
-
-/* ----------------------- RENDER SUMMARY --------------------- */
-function renderDailySummary() {
-  const countsMap = buildCountsByPickupDate();
-  const boxContainer = document.getElementById("summary-boxes");
-  if (!boxContainer) return;
-
-  boxContainer.innerHTML = "";
-
-  DAYS.forEach((date) => {
-    const used = countsMap[date] || 0;
-    const remaining = Math.max(DAILY_LIMIT - used, 0);
-
-    const dateObj = new Date(date + "T12:00:00");
-    const nice = dateObj.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
-
-    boxContainer.innerHTML += `
-      <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200 text-center">
-        <div class="text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">${nice}</div>
-        <div class="text-lg font-semibold mb-1">${used} / ${DAILY_LIMIT}</div>
-        <div class="text-xs text-gray-500">${remaining} remaining</div>
+    console.error("Init error:", err);
+    boxes.innerHTML = `
+      <div class="col-span-4 text-center text-red-600">
+        Error loading data from server. Check Netlify function / env.
       </div>
     `;
-  });
+    ordersList.innerHTML = `
+      <div class="text-red-600">
+        Error loading orders.
+      </div>
+    `;
+  }
 }
 
-/* ----------------------- RENDER ORDERS ---------------------- */
-function renderOrdersList() {
-  const container = document.getElementById("orders-list");
-  if (!container) return;
+/* ----------------------- FETCH FROM NETLIFY FUNCTION ------------------------ */
+async function fetchAdminData() {
+  const res = await fetch("/.netlify/functions/admin-orders");
+  const data = await res.json().catch(() => ({}));
 
-  container.innerHTML = "";
+  if (!res.ok) {
+    console.error("Admin function error:", data);
+    throw new Error(data.error || "Failed to load admin data");
+  }
 
-  if (!ORDERS_CACHE.length) {
-    container.innerHTML =
-      "<div class='text-gray-500 italic'>No completed orders yet.</div>";
+  ADMIN_DATA = {
+    daysSummary: data.daysSummary || [],
+    orders: data.orders || []
+  };
+}
+
+/* ----------------------- RENDER DAILY SUMMARY ------------------------ */
+function renderDailySummary() {
+  const boxContainer = document.getElementById("summary-boxes");
+  boxContainer.innerHTML = "";
+
+  if (!ADMIN_DATA.daysSummary.length) {
+    boxContainer.innerHTML = `
+      <div class="col-span-4 text-center text-gray-500 italic">
+        No orders yet.
+      </div>
+    `;
     return;
   }
 
-  const sorted = [...ORDERS_CACHE].sort((a, b) =>
-    (b.closed_at || b.created_at || "").localeCompare(
-      a.closed_at || a.created_at || ""
-    )
-  );
+  ADMIN_DATA.daysSummary.forEach((day) => {
+    const used = day.used || 0;
+    const limit = day.limit || 250;
+    const remaining = day.remaining != null ? day.remaining : Math.max(limit - used, 0);
+
+    boxContainer.innerHTML += `
+      <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200 text-center">
+        <h3 class="text-lg font-semibold mb-2 tracking-[0.15em]">${day.date}</h3>
+        <p class="text-3xl font-bold">${used} / ${limit}</p>
+        <p class="text-gray-500 mt-2">${remaining} Remaining</p>
+      </div>
+    `;
+  });
+}
+
+/* ----------------------- RENDER ORDERS LIST ------------------------ */
+function renderOrdersList() {
+  const container = document.getElementById("orders-list");
+  container.innerHTML = "";
+
+  const orders = ADMIN_DATA.orders || [];
+  if (!orders.length) {
+    container.innerHTML = `<div class="text-gray-500 italic">No completed orders yet.</div>`;
+    return;
+  }
+
+  const sorted = [...orders].sort((a, b) => {
+    const aKey = (a.pickupDate || "") + "T" + (a.pickupTime || "");
+    const bKey = (b.pickupDate || "") + "T" + (b.pickupTime || "");
+    return bKey.localeCompare(aKey);
+  });
 
   sorted.forEach((order) => {
-    const fulfill = (order.fulfillments && order.fulfillments[0]) || null;
-    const pickupDetails = fulfill?.pickup_details || {};
-    const pickupAt = pickupDetails.pickup_at || "";
-    const pickupDate = pickupAt ? pickupAt.slice(0, 10) : "N/A";
-    const pickupTime = pickupAt ? pickupAt.slice(11, 16) : "";
+    const total =
+      order.totalCents != null
+        ? (order.totalCents / 100).toFixed(2)
+        : "0.00";
 
-    const recipient = pickupDetails.recipient || {};
-    const customerName = recipient.display_name || "";
-    const customerPhone = recipient.phone_number || "";
-    const customerEmail = recipient.email_address || "";
-
-    const donutLines = (order.line_items || []).filter(
-      (li) => li.name !== "Pickup Details"
-    );
-
-    let donutsInOrder = 0;
-    donutLines.forEach((li) => {
-      const q = parseInt(li.quantity || "0", 10);
-      if (!isNaN(q)) donutsInOrder += q;
-    });
-
-    const totalAmount = order.total_money
-      ? (order.total_money.amount / 100).toFixed(2)
-      : "0.00";
-
-    const createdAt = order.created_at || "";
-
-    const itemsHtml = donutLines
-      .map((li) => {
-        const q = li.quantity || "0";
-        const name = li.name || "";
-        return `
-          <li class="flex justify-between text-sm">
-            <span>${q} × ${name}</span>
-          </li>
-        `;
-      })
-      .join("");
+    const pickupDate = order.pickupDate || "N/A";
+    const pickupTime = order.pickupTime ? `(${order.pickupTime})` : "";
+    const customerName = order.customerName || "";
+    const customerPhone = order.customerPhone || "";
+    const customerEmail = order.customerEmail || "";
 
     container.innerHTML += `
-      <div class="p-4 md:p-5 bg-gray-50 border border-gray-200 rounded-lg">
-        <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-3 mb-3">
-          <div>
-            <p class="text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">Pickup</p>
-            <p class="text-sm">
-              ${pickupDate}
-              ${pickupTime ? `<span class="text-gray-500">(${pickupTime})</span>` : ""}
+      <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+        <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-3">
+          <div class="space-y-1">
+            <p class="font-bold text-sm md:text-base">Order ID: ${order.id}</p>
+            <p class="text-sm text-gray-700">
+              Pickup: <span class="font-medium">${pickupDate} ${pickupTime}</span>
             </p>
-            <p class="text-sm text-gray-600 mt-1">
-              Donuts: <span class="font-semibold">${donutsInOrder}</span>
+            <p class="text-sm text-gray-700">
+              Donuts: <span class="font-medium">${order.donuts}</span>
             </p>
+            ${
+              customerName || customerPhone || customerEmail
+                ? `<div class="mt-2 text-xs text-gray-600 space-y-1">
+                    ${customerName ? `<div><span class="font-semibold">Name:</span> ${customerName}</div>` : ""}
+                    ${customerPhone ? `<div><span class="font-semibold">Phone:</span> ${customerPhone}</div>` : ""}
+                    ${customerEmail ? `<div><span class="font-semibold">Email:</span> ${customerEmail}</div>` : ""}
+                  </div>`
+                : ""
+            }
           </div>
-
           <div class="text-right">
-            <p class="text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">Total</p>
-            <p class="text-lg font-semibold">$${totalAmount}</p>
-            <p class="text-[11px] text-gray-500 mt-1">Created: ${createdAt}</p>
-            <p class="text-[11px] text-gray-400 mt-1">Order ID: ${order.id}</p>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 border-top border-gray-200 pt-3">
-          <div>
-            <p class="text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">Customer</p>
-            <p class="text-sm">${customerName || "-"}</p>
-            <p class="text-xs text-gray-600">${customerPhone || ""}</p>
-            <p class="text-xs text-gray-600 break-all">${customerEmail || ""}</p>
-          </div>
-
-          <div>
-            <p class="text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">Items</p>
-            <ul class="space-y-1">
-              ${itemsHtml || "<li class='text-xs text-gray-500'>No items</li>"}
-            </ul>
+            <p class="font-bold text-lg">$${total}</p>
+            <p class="text-xs text-gray-500 mt-1">
+              Created: ${order.createdAt || ""}
+            </p>
           </div>
         </div>
       </div>
@@ -310,16 +219,20 @@ function renderOrdersList() {
   });
 }
 
-/* ----------------------- LAST REFRESH LABEL ----------------- */
-function renderLastRefresh() {
-  const el = document.getElementById("last-refresh");
-  if (!el || !LAST_REFRESH_AT) return;
-  el.textContent =
-    "Last refresh: " +
-    LAST_REFRESH_AT.toLocaleTimeString("en-US", { hour12: false });
+/* ----------------------- REFRESH BUTTON ------------------------ */
+async function loadOrders() {
+  const container = document.getElementById("orders-list");
+  container.innerHTML = "<div class='text-gray-500 italic'>Loading…</div>";
+  try {
+    await fetchAdminData();
+    renderDailySummary();
+    renderOrdersList();
+  } catch (err) {
+    console.error("Refresh error:", err);
+    container.innerHTML = "<div class='text-red-600'>Error reloading orders.</div>";
+  }
 }
 </script>
-
 
 </body>
 </html>
