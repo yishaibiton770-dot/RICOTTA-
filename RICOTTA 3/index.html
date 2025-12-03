@@ -253,14 +253,21 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
               <div class="space-y-2">
                 <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Date (Dec 15-22)</label>
-                <input
-                  type="date"
+                <!-- במקום input[type=date] => SELECT עם רק התאריכים המותרים -->
+                <select
                   name="date"
-                  min="2025-12-15"
-                  max="2025-12-22"
                   required
-                  onchange="validatePickupDate(this)"
                   class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent">
+                  <option value="">Select a date</option>
+                  <option value="2025-12-15">Monday, Dec 15</option>
+                  <option value="2025-12-16">Tuesday, Dec 16</option>
+                  <option value="2025-12-17">Wednesday, Dec 17</option>
+                  <option value="2025-12-18">Thursday, Dec 18</option>
+                  <option value="2025-12-19">Friday, Dec 19</option>
+                  <!-- 2025-12-20 (Saturday) לא מופיע בכלל -->
+                  <option value="2025-12-21">Sunday, Dec 21</option>
+                  <option value="2025-12-22">Monday, Dec 22</option>
+                </select>
               </div>
               <div class="space-y-2">
                 <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Pickup Time</label>
@@ -637,38 +644,8 @@
       totalEl.textContent = '$' + total.toFixed(2);
     }
 
-    // חסימת שבת + 20/12
-    function validatePickupDate(input) {
-      if (!input || !input.value) return;
-      const value = input.value;
-
-      // חסימה ספציפית של 20 בדצמבר
-      if (value === "2025-12-20") {
-        alert("לא ניתן לבצע הזמנות בתאריך זה. בחר יום אחר.");
-        input.value = "";
-        return;
-      }
-
-      const d = new Date(value + "T12:00:00");
-      const day = d.getUTCDay(); // 0=Sunday ... 6=Saturday
-      if (day === 6) {
-        alert("לא ניתן לבצע הזמנות לשבת. בחר יום אחר.");
-        input.value = "";
-      }
-    }
-
     document.addEventListener("DOMContentLoaded", () => {
       window.scrollTo(0, 0);
-const dateInput = document.querySelector('input[name="date"]');
-
-dateInput.addEventListener("change", () => {
-  const min = new Date("2025-12-15");
-  const max = new Date("2025-12-22");
-  const selected = new Date(dateInput.value);
-
-  if (selected < min) dateInput.value = "2025-12-15";
-  if (selected > max) dateInput.value = "2025-12-22";
-});
       renderMenu();
       loadCartFromSession();
 
@@ -680,13 +657,6 @@ dateInput.addEventListener("change", () => {
 
       renderCart();
       renderModalCart();
-
-      const d = document.querySelector('input[name="date"]');
-      if (d) {
-        d.min = "2025-12-15";
-        d.max = "2025-12-22";
-        if (!d.value) d.value = "2025-12-15";
-      }
     });
 
     window.addEventListener('load', () => {
@@ -801,5 +771,3 @@ dateInput.addEventListener("change", () => {
 
 </body>
 </html>
-
-
