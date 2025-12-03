@@ -221,15 +221,6 @@ exports.handler = async (event) => {
       },
     }));
 
-    if (infoText) {
-      lineItems.push({
-        name: "Pickup Details",
-        quantity: "1",
-        base_price_money: { amount: 0, currency },
-        note: infoText,
-      });
-    }
-
     /* ---------- Fulfillment לדשבורד ---------- */
     const fulfillments = pickupAt
       ? [
@@ -307,3 +298,4 @@ exports.handler = async (event) => {
     };
   }
 };
+
