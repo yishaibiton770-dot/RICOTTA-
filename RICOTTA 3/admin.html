@@ -105,14 +105,20 @@ async function loadAdminData() {
       data = JSON.parse(text);
     } catch {
       console.error("Bad JSON from server:", text);
-      throw new Error("Bad JSON from server");
+      throw new Error("Bad JSON from server: " + text);
     }
 
-    if (!res.ok || !data.success) {
-      console.error("Server error:", data);
+    if (!res.ok) {
+      console.error("HTTP error:", res.status, data);
       throw new Error(
-        data.error || "Server returned an error response"
+        data.error ||
+        `HTTP ${res.status}`
       );
+    }
+
+    if (!data.success) {
+      console.error("Server logical error:", data);
+      throw new Error(data.error || "Server returned error");
     }
 
     ORDERS_CACHE = data.orders || [];
@@ -122,18 +128,20 @@ async function loadAdminData() {
     renderOrdersList();
   } catch (err) {
     console.error("Admin load error:", err);
+    const msg = err.message || "Unknown error";
     summaryContainer.innerHTML = `
       <div class="col-span-3 text-center text-red-600">
-        Error loading data from server. Check Netlify function / env.
+        Error loading data from server: ${msg}
       </div>
     `;
     ordersContainer.innerHTML = `
       <div class="text-red-600">
-        Error loading data from server. Check Netlify function / env.
+        Error loading data from server: ${msg}
       </div>
     `;
   }
 }
+
 
 /* ----------------------- RENDER DAILY SUMMARY ------------------------ */
 function renderDailySummary() {
