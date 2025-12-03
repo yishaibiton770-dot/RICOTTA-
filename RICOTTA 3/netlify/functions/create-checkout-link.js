@@ -1,28 +1,29 @@
 // netlify/functions/create-checkout-link.js
-
 const https = require("https");
 const crypto = require("crypto");
 
-/** ==== SQUARE CONFIG ==== */
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
 const LOCATION_ID = process.env.SQUARE_LOCATION_ID || "L54AH5T8V5HVN";
-const TAX_PERCENT = "8.875"; // tax is calculated *inside* Square
+const TAX_PERCENT = "8.875"; // אחוז מס בסקוור
 
-/** ==== SUPABASE CONFIG ==== */
+// --- Supabase ---
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-const DAILY_LIMIT = 250; // מקסימום 250 סופגניות ליום
+const DAILY_LIMIT = 250; // 250 סופגניות ליום
 
-/** -------- Generic HTTPS helper -------- */
-function callHttps(hostname, path, method, headers, bodyObj) {
+function callSquare(path, method, bodyObj) {
   return new Promise((resolve, reject) => {
     const body = bodyObj ? JSON.stringify(bodyObj) : null;
 
     const options = {
-      hostname,
+      hostname: "connect.squareup.com",
       path,
       method,
-      headers,
+      headers: {
+        "Square-Version": "2025-01-15",
+        Authorization: `Bearer ${SQUARE_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
     };
 
     const req = https.request(options, (res) => {
@@ -33,7 +34,7 @@ function callHttps(hostname, path, method, headers, bodyObj) {
         try {
           json = JSON.parse(data);
         } catch {
-          json = data ? { raw: data } : {};
+          json = { raw: data };
         }
         resolve({ statusCode: res.statusCode, body: json });
       });
@@ -46,46 +47,36 @@ function callHttps(hostname, path, method, headers, bodyObj) {
   });
 }
 
-/** -------- Square helper -------- */
-function callSquare(path, method, bodyObj) {
-  return callHttps(
-    "connect.squareup.com",
-    path,
-    method,
-    {
-      "Square-Version": "2025-01-15",
-      Authorization: `Bearer ${SQUARE_ACCESS_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    bodyObj
-  );
-}
-
-/** -------- Supabase helper (REST) -------- */
-function callSupabase(path, method, bodyObj) {
+// קריאה ל-Supabase
+async function getDailyInventory(pickupDate) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    // אם לא מוגדר – לא חוסם את התשלום, פשוט מדלג על מגבלה
-    return Promise.resolve({
-      statusCode: 501,
-      body: { error: "Supabase not configured" },
-    });
+    throw new Error("Missing Supabase config");
   }
 
-  const url = new URL(SUPABASE_URL);
+  const url =
+    `${SUPABASE_URL}/rest/v1/daily_inventory` +
+    `?select=total_donuts&date=eq.${pickupDate}`;
 
-  const headers = {
-    apikey: SUPABASE_SERVICE_KEY,
-    Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
-    "Content-Type": "application/json",
-    Prefer: "return=representation",
-  };
+  const res = await fetch(url, {
+    headers: {
+      apikey: SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+    },
+  });
 
-  return callHttps(url.hostname, `${url.pathname}/rest/v1${path}`, method, headers, bodyObj);
+  if (!res.ok) {
+    const txt = await res.text();
+    console.error("Supabase error (getDailyInventory):", txt);
+    throw new Error("Inventory check failed");
+  }
+
+  const rows = await res.json();
+  if (!rows.length) {
+    return 0;
+  }
+  return rows[0].total_donuts || 0;
 }
 
-/** =======================================================
- *                Netlify Function Handler
- * =======================================================*/
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
@@ -104,7 +95,6 @@ exports.handler = async (event) => {
       redirectUrlBase,
       pickupDate,
       pickupTime, // "10:00 - 11:00"
-      pickupWindow, // לא חובה מהפרונט
       customerName,
       customerPhone,
       customerEmail,
@@ -121,68 +111,57 @@ exports.handler = async (event) => {
     if (!pickupDate) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "Pickup date is required" }),
+        body: JSON.stringify({ error: "pickupDate is required" }),
       };
     }
 
-    /** ============ 1. INVENTORY LIMIT (SUPABASE) ============ */
-    const totalUnitsInOrder = cartItems.reduce(
+    // כמה סופגניות הלקוח הזה רוצה
+    const donutsRequested = cartItems.reduce(
       (sum, item) => sum + Number(item.quantity || 0),
       0
     );
 
-    let usedToday = 0;
-    let inventoryRow = null;
+    if (!donutsRequested || donutsRequested <= 0) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Invalid quantity" }),
+      };
+    }
 
-    if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
-      // 1. לקרוא מה־DB כמה כבר הוזמן לתאריך הזה
-      const invRes = await callSupabase(
-        `/daily_inventory?date=eq.${pickupDate}&select=id,total_units&limit=1`,
-        "GET"
-      );
+    // ✅ בדיקה מול DB – כמה סופגניות **שולמו** כבר ליום הזה
+    try {
+      const alreadyPaid = await getDailyInventory(pickupDate);
+      const remaining = DAILY_LIMIT - alreadyPaid;
 
-      if (invRes.statusCode === 200 && Array.isArray(invRes.body) && invRes.body.length > 0) {
-        inventoryRow = invRes.body[0];
-        usedToday = Number(inventoryRow.total_units || 0);
-      }
-
-      const newTotal = usedToday + totalUnitsInOrder;
-
-      if (newTotal > DAILY_LIMIT) {
-        const remaining = Math.max(DAILY_LIMIT - usedToday, 0);
-        const msg =
-          remaining <= 0
-            ? "We’re fully booked for this date. Please choose another date."
-            : `Only ${remaining} donuts left for this date. Please reduce your quantity or choose another date.`;
-
+      if (remaining <= 0) {
         return {
           statusCode: 400,
-          body: JSON.stringify({ error: msg, code: "INVENTORY_LIMIT" }),
+          body: JSON.stringify({
+            error: "We’re fully booked for this day. Please choose another date.",
+          }),
         };
       }
 
-      // 2. לעדכן / ליצור רשומה חדשה
-      if (inventoryRow) {
-        const updateRes = await callSupabase(
-          `/daily_inventory?id=eq.${inventoryRow.id}`,
-          "PATCH",
-          { total_units: newTotal }
-        );
-        if (updateRes.statusCode >= 400) {
-          console.error("Supabase update error:", updateRes.body);
-        }
-      } else {
-        const insertRes = await callSupabase(`/daily_inventory`, "POST", {
-          date: pickupDate,
-          total_units: newTotal,
-        });
-        if (insertRes.statusCode >= 400) {
-          console.error("Supabase insert error:", insertRes.body);
-        }
+      if (donutsRequested > remaining) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({
+            error: `Only ${remaining} donuts left for this day. Please reduce quantity or choose another date.`,
+          }),
+        };
       }
+    } catch (e) {
+      console.error("Inventory check failed:", e);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          error:
+            "There was a problem checking availability. Please try again in a minute.",
+        }),
+      };
     }
 
-    /** ============ 2. BUILD PICKUP TEXT ============ */
+    // ---------- תיאור איסוף לטיקט ----------
     let pickupLabel = "";
     let pickupAt = null;
 
@@ -204,13 +183,10 @@ exports.handler = async (event) => {
         "–"
       )})`;
 
-      const fromStr =
-        (pickupWindow && pickupWindow.from) ||
-        (pickupTime.match(/^(\d{2}:\d{2})/)
-          ? pickupTime.match(/^(\d{2}:\d{2})/)[1]
-          : "10:00");
+      const fromMatch = pickupTime.match(/^(\d{2}:\d{2})/);
+      const fromStr = fromMatch ? fromMatch[1] : "10:00";
 
-      pickupAt = `${pickupDate}T${fromStr}:00-05:00`; // America/New_York
+      pickupAt = `${pickupDate}T${fromStr}:00-05:00`; // ניו יורק
     } else if (pickupDate) {
       pickupLabel = `Pickup: ${pickupDate}`;
     }
@@ -225,7 +201,7 @@ exports.handler = async (event) => {
 
     const infoText = infoLines.join("\n");
 
-    /** ============ 3. BUILD ORDER LINE ITEMS ============ */
+    // ---------- שורות מוצרים ----------
     const lineItems = cartItems.map((item) => ({
       name: item.name,
       quantity: String(item.quantity),
@@ -235,7 +211,7 @@ exports.handler = async (event) => {
       },
     }));
 
-    // שורת מידע באפס דולר שתופיע על הטיקט
+    // שורת מידע באפס דולר שתופיע בטיקט הגדול / ריפאנד
     if (infoText) {
       lineItems.push({
         name: "Pickup Details",
@@ -245,7 +221,7 @@ exports.handler = async (event) => {
       });
     }
 
-    /** ============ 4. FULFILLMENT לדשבורד ============ */
+    // ---------- Fulfillment לדשבורד ----------
     const fulfillments = pickupAt
       ? [
           {
@@ -265,7 +241,7 @@ exports.handler = async (event) => {
         ]
       : undefined;
 
-    /** ============ 5. ORDER כולל TAX אמיתי ============ */
+    // ---------- TAX אמיתי בסקוור ----------
     const order = {
       location_id: LOCATION_ID,
       line_items: lineItems,
@@ -275,7 +251,7 @@ exports.handler = async (event) => {
           name: "Sales Tax",
           type: "ADDITIVE",
           scope: "ORDER",
-          percentage: TAX_PERCENT,
+          percentage: TAX_PERCENT, // 8.875%
         },
       ],
     };
@@ -292,7 +268,6 @@ exports.handler = async (event) => {
       },
     };
 
-    /** ============ 6. CALL SQUARE ============ */
     const result = await callSquare(
       "/v2/online-checkout/payment-links",
       "POST",
@@ -319,9 +294,7 @@ exports.handler = async (event) => {
     console.error("Function error:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({
-        error: err.message || "Unexpected server error",
-      }),
+      body: JSON.stringify({ error: err.message || "Unexpected server error" }),
     };
   }
 };
