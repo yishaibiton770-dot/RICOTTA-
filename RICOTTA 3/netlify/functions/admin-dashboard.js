@@ -60,23 +60,25 @@ exports.handler = async (event) => {
   }
 
   try {
-    // מביא את כל ההזמנות ששולמו בתקופת חנוכה (COMPLETED)
-    const body = {
-      location_ids: [LOCATION_ID],
-      query: {
-        filter: {
-          state_filter: {
-            states: ["COMPLETED"],
-          },
-          date_time_filter: {
-            created_at: {
-              start_at: "2025-12-14T00:00:00-05:00",
-              end_at: "2025-12-23T23:59:59-05:00",
-            },
-          },
+ // מחפשים כל ההזמנות ששולמו בערך בשנה הזו
+const body = {
+  location_ids: [LOCATION_ID],
+  query: {
+    filter: {
+      state_filter: {
+        states: ["COMPLETED"], // רק הזמנות ששולמו
+      },
+      date_time_filter: {
+        created_at: {
+          // טווח רחב כדי לכלול גם הזמנות ניסיון וגם חנוכה
+          start_at: "2025-01-01T00:00:00-05:00",
+          end_at:   "2026-01-01T00:00:00-05:00",
         },
       },
-    };
+    },
+  },
+};
+
 
     const result = await callSquare("/v2/orders/search", "POST", body);
 
