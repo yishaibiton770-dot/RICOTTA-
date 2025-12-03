@@ -2,14 +2,17 @@
 const https = require("https");
 const crypto = require("crypto");
 
+// ----- SQUARE -----
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
 const LOCATION_ID = process.env.SQUARE_LOCATION_ID || "L54AH5T8V5HVN";
 const TAX_PERCENT = "8.875"; // אחוז מס בסקוור
 
-// --- Supabase ---
+// ----- SUPABASE (קריאה בלבד למלאי) -----
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-const DAILY_LIMIT = 250; // 250 סופגניות ליום
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// כמה סופגניות מותר ביום
+const DAILY_LIMIT = 250;
 
 function callSquare(path, method, bodyObj) {
   return new Promise((resolve, reject) => {
@@ -47,34 +50,35 @@ function callSquare(path, method, bodyObj) {
   });
 }
 
-// קריאה ל-Supabase
-async function getDailyInventory(pickupDate) {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    throw new Error("Missing Supabase config");
+// ----- פונקציה לקבלת כמות ששולמה כבר ליום מסוים -----
+async function getUsedQuantityForDate(dateStr) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    // אם אין חיבור ל־Supabase – לא חוסמים, רק מתריעים בלוג
+    console.warn("Supabase env not set, skipping availability check");
+    return 0;
   }
 
-  const url =
-    `${SUPABASE_URL}/rest/v1/daily_inventory` +
-    `?select=total_donuts&date=eq.${pickupDate}`;
+  const url = `${SUPABASE_URL}/rest/v1/daily_inventory?date=eq.${dateStr}&select=used_quantity`;
 
   const res = await fetch(url, {
     headers: {
-      apikey: SUPABASE_SERVICE_KEY,
-      Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      Accept: "application/json",
     },
   });
 
-  if (!res.ok) {
-    const txt = await res.text();
-    console.error("Supabase error (getDailyInventory):", txt);
-    throw new Error("Inventory check failed");
-  }
+  const data = await res.json().catch(() => []);
 
-  const rows = await res.json();
-  if (!rows.length) {
+  if (!res.ok) {
+    console.error("Supabase error:", data);
+    // במקרה של בעיה ב־Supabase – לא חוסמים מכירה, רק מחזירים 0
     return 0;
   }
-  return rows[0].total_donuts || 0;
+
+  if (!Array.isArray(data) || data.length === 0) return 0;
+  const row = data[0];
+  return typeof row.used_quantity === "number" ? row.used_quantity : 0;
 }
 
 exports.handler = async (event) => {
@@ -95,6 +99,7 @@ exports.handler = async (event) => {
       redirectUrlBase,
       pickupDate,
       pickupTime, // "10:00 - 11:00"
+      pickupWindow, // { from: "10:00", to: "11:00" } אם תרצה בעתיד
       customerName,
       customerPhone,
       customerEmail,
@@ -104,64 +109,52 @@ exports.handler = async (event) => {
     if (!cartItems || !cartItems.length) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "cartItems is required" }),
+        body: JSON.stringify({ error: "Your box is empty." }),
       };
     }
 
     if (!pickupDate) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "pickupDate is required" }),
+        body: JSON.stringify({ error: "Pickup date is required." }),
       };
     }
 
-    // כמה סופגניות הלקוח הזה רוצה
-    const donutsRequested = cartItems.reduce(
+    // ====== בדיקת מלאי יומי ב־Supabase (רק הזמנות ששולמו!) ======
+    // סך הכל סופגניות בהזמנה הנוכחית
+    const requestedQty = cartItems.reduce(
       (sum, item) => sum + Number(item.quantity || 0),
       0
     );
 
-    if (!donutsRequested || donutsRequested <= 0) {
+    const alreadyUsed = await getUsedQuantityForDate(pickupDate);
+    const remaining = DAILY_LIMIT - alreadyUsed;
+
+    if (remaining <= 0) {
+      // היום הזה כבר מלא
       return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Invalid quantity" }),
-      };
-    }
-
-    // ✅ בדיקה מול DB – כמה סופגניות **שולמו** כבר ליום הזה
-    try {
-      const alreadyPaid = await getDailyInventory(pickupDate);
-      const remaining = DAILY_LIMIT - alreadyPaid;
-
-      if (remaining <= 0) {
-        return {
-          statusCode: 400,
-          body: JSON.stringify({
-            error: "We’re fully booked for this day. Please choose another date.",
-          }),
-        };
-      }
-
-      if (donutsRequested > remaining) {
-        return {
-          statusCode: 400,
-          body: JSON.stringify({
-            error: `Only ${remaining} donuts left for this day. Please reduce quantity or choose another date.`,
-          }),
-        };
-      }
-    } catch (e) {
-      console.error("Inventory check failed:", e);
-      return {
-        statusCode: 500,
+        statusCode: 409,
         body: JSON.stringify({
-          error:
-            "There was a problem checking availability. Please try again in a minute.",
+          error: "SOLD_OUT",
+          message: "We’re fully booked for this day. Please choose another date.",
         }),
       };
     }
 
-    // ---------- תיאור איסוף לטיקט ----------
+    if (requestedQty > remaining) {
+      // נשארו פחות ממה שהוא מנסה להזמין
+      return {
+        statusCode: 409,
+        body: JSON.stringify({
+          error: "LIMIT_EXCEEDED",
+          message: `We only have ${remaining} donuts left for this day. Please reduce the quantity or choose another date.`,
+        }),
+      };
+    }
+
+    // ====== מכאן – המשך הקוד הישן שעבד לך טוב ======
+
+    // טקסט יפה לאיסוף
     let pickupLabel = "";
     let pickupAt = null;
 
@@ -183,8 +176,11 @@ exports.handler = async (event) => {
         "–"
       )})`;
 
-      const fromMatch = pickupTime.match(/^(\d{2}:\d{2})/);
-      const fromStr = fromMatch ? fromMatch[1] : "10:00";
+      const fromStr =
+        (pickupWindow && pickupWindow.from) ||
+        (pickupTime.match(/^(\d{2}:\d{2})/)
+          ? pickupTime.match(/^(\d{2}:\d{2})/)[1]
+          : "10:00");
 
       pickupAt = `${pickupDate}T${fromStr}:00-05:00`; // ניו יורק
     } else if (pickupDate) {
@@ -201,7 +197,7 @@ exports.handler = async (event) => {
 
     const infoText = infoLines.join("\n");
 
-    // ---------- שורות מוצרים ----------
+    // שורות מוצרים
     const lineItems = cartItems.map((item) => ({
       name: item.name,
       quantity: String(item.quantity),
@@ -211,7 +207,7 @@ exports.handler = async (event) => {
       },
     }));
 
-    // שורת מידע באפס דולר שתופיע בטיקט הגדול / ריפאנד
+    // שורת מידע באפס דולר לטיקט הגדול / ריפאנד
     if (infoText) {
       lineItems.push({
         name: "Pickup Details",
@@ -221,7 +217,7 @@ exports.handler = async (event) => {
       });
     }
 
-    // ---------- Fulfillment לדשבורד ----------
+    // Fulfillment לדשבורד
     const fulfillments = pickupAt
       ? [
           {
@@ -241,7 +237,7 @@ exports.handler = async (event) => {
         ]
       : undefined;
 
-    // ---------- TAX אמיתי בסקוור ----------
+    // TAX אמיתי בסקוור
     const order = {
       location_id: LOCATION_ID,
       line_items: lineItems,
@@ -294,7 +290,9 @@ exports.handler = async (event) => {
     console.error("Function error:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message || "Unexpected server error" }),
+      body: JSON.stringify({
+        error: err.message || "Unexpected server error",
+      }),
     };
   }
 };
