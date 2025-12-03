@@ -3,12 +3,17 @@ const https = require("https");
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
 const LOCATION_ID = process.env.SQUARE_LOCATION_ID || "L54AH5T8V5HVN";
+
+// כמה סופגניות מותר ליום
 const DAILY_LIMIT = 250;
 
-// הימים הרלוונטיים
+// כל ההזמנות *לפני* התאריך הזה לא נספרות (בדיקות)
+const GO_LIVE_AT = "2025-12-04T00:00:00-05:00";
+
+// טווח ימים לחנוכה (בשביל daily map)
 const DAYS = [
   "2025-12-15","2025-12-16","2025-12-17","2025-12-18",
-  "2025-12-19","2025-12-21","2025-12-22" // 20 שבת – מדלגים
+  "2025-12-19","2025-12-21","2025-12-22"
 ];
 
 function callSquare(path, method, bodyObj) {
@@ -55,37 +60,35 @@ exports.handler = async (event) => {
   if (!SQUARE_ACCESS_TOKEN) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ success: false, error: "Missing SQUARE_ACCESS_TOKEN env var" }),
+      body: JSON.stringify({ success: false, error: "Missing SQUARE_ACCESS_TOKEN" }),
     };
   }
 
   try {
- // מחפשים כל ההזמנות ששולמו בערך בשנה הזו
-const body = {
-  location_ids: [LOCATION_ID],
-  query: {
-    filter: {
-      state_filter: {
-        states: ["COMPLETED"], // רק הזמנות ששולמו
-      },
-      date_time_filter: {
-        created_at: {
-          // טווח רחב כדי לכלול גם הזמנות ניסיון וגם חנוכה
-          start_at: "2025-01-01T00:00:00-05:00",
-          end_at:   "2026-01-01T00:00:00-05:00",
+    // מחפשים הזמנות שהושלמו סביב חנוכה
+    const body = {
+      location_ids: [LOCATION_ID],
+      query: {
+        filter: {
+          state_filter: {
+            states: ["COMPLETED"],
+          },
+          date_time_filter: {
+            created_at: {
+              start_at: "2025-12-01T00:00:00-05:00",
+              end_at:   "2025-12-31T23:59:59-05:00",
+            },
+          },
         },
       },
-    },
-  },
-};
-
+    };
 
     const result = await callSquare("/v2/orders/search", "POST", body);
 
     if (result.statusCode >= 400 || result.body.errors) {
-      console.error("Square orders error:", result.body);
+      console.error("Square error:", result.body);
       return {
-        statusCode: 500,
+        statusCode: 400,
         body: JSON.stringify({
           success: false,
           error:
@@ -97,51 +100,69 @@ const body = {
 
     const orders = result.body.orders || [];
 
-    // חישוב מספר הסופגניות לכל הזמנה ולכל תאריך איסוף
-    const dailyMap = {}; // { '2025-12-18': מספר סופגניות }
-    const simplifiedOrders = [];
+    const daily = {};
+    const outOrders = [];
 
     for (const order of orders) {
+      // לא סופרים ניסויים לפני GO_LIVE_AT
+      if (order.created_at && order.created_at < GO_LIVE_AT) continue;
+
       const fulfill = (order.fulfillments && order.fulfillments[0]) || null;
       const pickupAt = fulfill?.pickup_details?.pickup_at || null;
       if (!pickupAt) continue;
 
-      const pickupDate = pickupAt.slice(0, 10);   // yyyy-mm-dd
-      const pickupTime = pickupAt.slice(11, 16);  // HH:MM
+      const pickupDate = pickupAt.slice(0, 10);  // yyyy-mm-dd
+      const pickupTime = pickupAt.slice(11, 16); // hh:mm
 
-      // סופרים סופגניות לפי line_items (בלי שורת Pickup Details)
-      let donutsInOrder = 0;
+      // לא מעניין אותנו ימים מחוץ לטווח חנוכה בדשבורד
+      if (!DAYS.includes(pickupDate)) continue;
+
+      // סופגניות שנמכרו
+      let sold = 0;
       for (const li of order.line_items || []) {
         if (li.name === "Pickup Details") continue;
         const q = parseInt(li.quantity || "0", 10);
-        if (!isNaN(q)) donutsInOrder += q;
+        if (!isNaN(q)) sold += q;
       }
 
-      if (!dailyMap[pickupDate]) dailyMap[pickupDate] = 0;
-      dailyMap[pickupDate] += donutsInOrder;
+      // סופגניות שהוחזרו/בוטלו
+      let returned = 0;
+      for (const ret of order.returns || []) {
+        for (const rli of ret.return_line_items || []) {
+          if (rli.name === "Pickup Details") continue;
+          const rq = parseInt(rli.quantity || "0", 10);
+          if (!isNaN(rq)) returned += rq;
+        }
+      }
+
+      const netDonuts = sold - returned;
+      if (netDonuts <= 0) {
+        // הזמנה שבוטלה לגמרי – לא תופסת מקום במלאי
+        continue;
+      }
+
+      if (!daily[pickupDate]) {
+        daily[pickupDate] = { used: 0, remaining: DAILY_LIMIT };
+      }
+
+      daily[pickupDate].used += netDonuts;
+      daily[pickupDate].remaining = Math.max(
+        DAILY_LIMIT - daily[pickupDate].used,
+        0
+      );
 
       const total = order.total_money
         ? order.total_money.amount / 100
         : 0;
 
-      simplifiedOrders.push({
+      outOrders.push({
         id: order.id,
         pickupDate,
         pickupTime,
-        donuts: donutsInOrder,
+        donuts: netDonuts,
         total,
-        created_at: order.created_at || order.closed_at || null,
+        created_at: order.created_at || "",
       });
-    }
-
-    // בניית אובייקט יומי ל־UI
-    const daily = {};
-    for (const d of DAYS) {
-      const used = dailyMap[d] || 0;
-      daily[d] = {
-        used,
-        remaining: Math.max(DAILY_LIMIT - used, 0),
-      };
     }
 
     return {
@@ -149,7 +170,7 @@ const body = {
       body: JSON.stringify({
         success: true,
         daily,
-        orders: simplifiedOrders,
+        orders: outOrders,
       }),
     };
   } catch (err) {
