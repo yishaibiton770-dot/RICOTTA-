@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>RICOTTA ADMIN</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet" />
 
   <style>
     body {
@@ -14,58 +14,76 @@
     }
   </style>
 </head>
-
 <body class="min-h-screen flex items-center justify-center">
 
-  <!-- LOGIN SCREEN -->
+  <!-- LOGIN -->
   <div id="login-screen" class="w-full max-w-sm p-8 bg-white shadow-xl border border-gray-200 rounded-lg">
     <h1 class="text-3xl text-center mb-6 tracking-[0.2em]">ADMIN</h1>
 
-    <input id="admin-password" type="password"
-           placeholder="Enter password"
-           class="w-full p-3 border border-gray-300 rounded mb-4">
+    <input
+      id="admin-password"
+      type="password"
+      placeholder="Enter password"
+      class="w-full p-3 border border-gray-300 rounded mb-4"
+    />
 
-    <button onclick="loginAdmin()"
-            class="w-full bg-black text-white py-3 rounded tracking-[0.2em] hover:bg-gray-800">
+    <button
+      onclick="loginAdmin()"
+      class="w-full bg-black text-white py-3 rounded tracking-[0.2em] hover:bg-gray-800"
+    >
       LOGIN
     </button>
 
     <p id="login-error" class="text-red-600 text-center mt-3 hidden">
-      Wrong Password
+      Wrong password
     </p>
   </div>
 
   <!-- DASHBOARD -->
-  <div id="admin-panel" class="hidden w-full p-10">
+  <div id="admin-panel" class="hidden w-full min-h-screen p-6 md:p-10">
 
-    <h1 class="text-5xl mb-10 text-center tracking-[0.2em]">RICOTTA ADMIN</h1>
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-10">
+      <h1 class="text-4xl md:text-5xl tracking-[0.2em] text-center md:text-left">
+        RICOTTA ADMIN
+      </h1>
+      <div class="text-sm text-gray-600 text-center md:text-right space-y-1">
+        <div id="last-refresh">Last refresh: –</div>
+        <button
+          onclick="loadOrders(true)"
+          class="px-4 py-2 bg-black text-white rounded tracking-[0.15em] hover:bg-gray-800 text-xs"
+        >
+          REFRESH NOW
+        </button>
+      </div>
+    </div>
 
     <!-- SUMMARY BOXES -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12" id="summary-boxes"></div>
+    <div
+      id="summary-boxes"
+      class="grid grid-cols-1 md:grid-cols-4 xl:grid-cols-8 gap-4 mb-10"
+    ></div>
 
-    <!-- ORDERS -->
-    <div class="bg-white p-8 rounded-lg shadow-xl border border-gray-200">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-3xl tracking-[0.1em]">Paid Orders From Square</h2>
-        <button onclick="loadOrders()"
-                class="px-5 py-2 bg-black text-white rounded tracking-widest hover:bg-gray-800">
-          Refresh
-        </button>
+    <!-- ORDERS LIST -->
+    <div class="bg-white p-6 md:p-8 rounded-lg shadow-xl border border-gray-200">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <h2 class="text-2xl md:text-3xl tracking-[0.1em]">
+          Paid Orders From Square
+        </h2>
+        <span class="text-xs text-gray-500">
+          Showing COMPLETED orders between Dec 15–22, 2025
+        </span>
       </div>
 
       <div id="orders-list" class="space-y-4">
         <div class="text-gray-500 italic">Loading…</div>
       </div>
     </div>
-
   </div>
 
 <script>
-/* ----------------------- AUTH ------------------------- */
+/* ----------------------- SIMPLE AUTH ----------------------- */
 function loginAdmin() {
   const pass = document.getElementById("admin-password").value.trim();
-
-  // סיסמה (תשנה למה שאתה רוצה)
   if (pass === "ricotta999") {
     document.getElementById("login-screen").classList.add("hidden");
     document.getElementById("admin-panel").classList.remove("hidden");
@@ -75,85 +93,102 @@ function loginAdmin() {
   }
 }
 
-/* ----------------------- CONFIG ------------------------ */
+/* ----------------------- CONFIG ----------------------------- */
 
-// כמה סופגניות ליום
-const DAILY_LIMIT = 250;
-
-// Square Production Token (ה־Access Token שלך)
-const SQUARE_TOKEN = "EAAAl4mJqoabKy44ioRVy_WywmHMMYc5iFmOaUVSBdqCl2ngmFM3EhzowsnvR8o4"; // ← להחליף לטוקן האמיתי
+// ⚠️ IMPORTANT: לשימוש פנימי בלבד. עדיף להעביר דרך Netlify Function עם env.
+const SQUARE_TOKEN = "EAAAl4mJqoabKy44ioRVy_WywmHMMYc5iFmOaUVSBdqCl2ngmFM3EhzowsnvR8o4";
 const SQUARE_LOCATION_ID = "L54AH5T8V5HVN";
 
-// טווח הימים של חנוכה
+// daily limit per day
+const DAILY_LIMIT = 250;
+
+// Hanukkah range
 const DAYS = [
   "2025-12-15","2025-12-16","2025-12-17","2025-12-18",
   "2025-12-19","2025-12-20","2025-12-21","2025-12-22"
 ];
 
-/* ----------------------- GLOBAL CACHE ------------------------ */
+/* ----------------------- GLOBAL STATE ----------------------- */
 let ORDERS_CACHE = [];
+let LAST_REFRESH_AT = null;
+let AUTO_REFRESH_TIMER = null;
 
-/* ----------------------- INIT ------------------------ */
+/* ----------------------- INIT ------------------------------ */
 async function initDashboard() {
-  try {
-    await loadAllOrdersFromSquare();
-    renderDailySummary();
-    renderOrdersList();
-  } catch (err) {
-    console.error("Init error:", err);
-    const box = document.getElementById("summary-boxes");
-    if (box) {
-      box.innerHTML = `<div class="col-span-3 text-center text-red-600">
-        Error loading data from Square. Check token / permissions.
-      </div>`;
-    }
-  }
+  await loadOrders(true);
+  // auto refresh every 60s
+  AUTO_REFRESH_TIMER = setInterval(() => loadOrders(false), 60000);
 }
 
-/* ----------------------- LOAD ALL ORDERS (ONCE) ------------------------ */
-async function loadAllOrdersFromSquare() {
-  // טוען הזמנות בטווח גדול (כל חנוכה) לפי Orders API
-  // מסנן ל־COMPLETED בלבד
-  const body = {
-    location_ids: [SQUARE_LOCATION_ID],
-    query: {
-      filter: {
-        state_filter: {
-          states: ["COMPLETED"]
-        },
-        date_time_filter: {
-          // מחפשים לפי זמן יצירת ההזמנה – זה רק פילטר ראשוני
-          created_at: {
-            start_at: "2025-12-14T00:00:00-05:00",
-            end_at:   "2025-12-23T23:59:59-05:00"
+/* ----------------------- LOAD ORDERS ------------------------ */
+async function loadOrders(showSpinner) {
+  const ordersContainer = document.getElementById("orders-list");
+  const summaryContainer = document.getElementById("summary-boxes");
+
+  if (showSpinner && ordersContainer) {
+    ordersContainer.innerHTML = "<div class='text-gray-500 italic'>Loading…</div>";
+  }
+
+  try {
+    const body = {
+      location_ids: [SQUARE_LOCATION_ID],
+      query: {
+        filter: {
+          state_filter: {
+            states: ["COMPLETED"]
+          },
+          date_time_filter: {
+            created_at: {
+              start_at: "2025-12-14T00:00:00-05:00",
+              end_at:   "2025-12-23T23:59:59-05:00"
+            }
           }
         }
       }
+    };
+
+    const res = await fetch("https://connect.squareup.com/v2/orders/search", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${SQUARE_TOKEN}`,
+        "Square-Version": "2025-01-15",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("Square orders error:", data);
+      if (ordersContainer) {
+        ordersContainer.innerHTML =
+          "<div class='text-red-600'>Error loading orders from Square.</div>";
+      }
+      if (summaryContainer) {
+        summaryContainer.innerHTML =
+          "<div class='col-span-4 text-red-600 text-center'>Error loading data</div>";
+      }
+      return;
     }
-  };
 
-  const res = await fetch("https://connect.squareup.com/v2/orders/search", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${SQUARE_TOKEN}`,
-      "Square-Version": "2025-01-15",
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
+    ORDERS_CACHE = data.orders || [];
+    LAST_REFRESH_AT = new Date();
 
-  const data = await res.json();
-  if (!res.ok) {
-    console.error("Square orders error:", data);
-    throw new Error(data.errors?.[0]?.detail || "Failed to load orders");
+    renderDailySummary();
+    renderOrdersList();
+    renderLastRefresh();
+  } catch (err) {
+    console.error("Load orders error:", err);
+    if (ordersContainer) {
+      ordersContainer.innerHTML =
+        "<div class='text-red-600'>Unexpected error loading orders.</div>";
+    }
   }
-
-  ORDERS_CACHE = data.orders || [];
 }
 
-/* ----------------------- HELPER: COUNT DONUTS BY PICKUP DATE ------------------------ */
+/* ----------------------- UTIL: BUILD COUNTS ----------------- */
 function buildCountsByPickupDate() {
-  // נחזיר map של { '2025-12-18': 132, ... }
   const map = {};
 
   for (const order of ORDERS_CACHE) {
@@ -161,12 +196,11 @@ function buildCountsByPickupDate() {
     const pickupAt = fulfill?.pickup_details?.pickup_at || null;
     if (!pickupAt) continue;
 
-    // pickupAt בפורמט: 2025-12-18T10:00:00-05:00 → לוקחים רק yyyy-mm-dd
-    const pickupDate = pickupAt.slice(0, 10);
+    const pickupDate = pickupAt.slice(0, 10); // yyyy-mm-dd
 
     let donutsInOrder = 0;
     for (const li of order.line_items || []) {
-      if (li.name === "Pickup Details") continue; // לא סופרים שורת מידע
+      if (li.name === "Pickup Details") continue;
       const q = parseInt(li.quantity || "0", 10);
       if (!isNaN(q)) donutsInOrder += q;
     }
@@ -178,75 +212,144 @@ function buildCountsByPickupDate() {
   return map;
 }
 
-/* ----------------------- RENDER DAILY SUMMARY ------------------------ */
+/* ----------------------- RENDER SUMMARY --------------------- */
 function renderDailySummary() {
   const countsMap = buildCountsByPickupDate();
   const boxContainer = document.getElementById("summary-boxes");
+  if (!boxContainer) return;
+
   boxContainer.innerHTML = "";
 
   DAYS.forEach((date) => {
     const used = countsMap[date] || 0;
     const remaining = Math.max(DAILY_LIMIT - used, 0);
 
+    const dateObj = new Date(date + "T12:00:00");
+    const nice = dateObj.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric"
+    });
+
     boxContainer.innerHTML += `
-      <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200 text-center">
-        <h3 class="text-xl font-semibold mb-2">${date}</h3>
-        <p class="text-3xl font-bold">${used} / ${DAILY_LIMIT}</p>
-        <p class="text-gray-500 mt-2">${remaining} Remaining</p>
+      <div class="bg-white p-4 rounded-lg shadow-md border border-gray-200 text-center">
+        <div class="text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">${nice}</div>
+        <div class="text-lg font-semibold mb-1">${used} / ${DAILY_LIMIT}</div>
+        <div class="text-xs text-gray-500">${remaining} remaining</div>
       </div>
     `;
   });
 }
 
-/* ----------------------- RENDER ORDERS LIST ------------------------ */
+/* ----------------------- RENDER ORDERS ---------------------- */
 function renderOrdersList() {
   const container = document.getElementById("orders-list");
+  if (!container) return;
+
   container.innerHTML = "";
 
   if (!ORDERS_CACHE.length) {
-    container.innerHTML = `<div class="text-gray-500 italic">No completed orders yet.</div>`;
+    container.innerHTML =
+      "<div class='text-gray-500 italic'>No completed orders yet.</div>";
     return;
   }
 
-  // נסדר מהחדש לישן
+  // newest first
   const sorted = [...ORDERS_CACHE].sort((a, b) =>
-    (b.closed_at || b.created_at || "").localeCompare(a.closed_at || a.created_at || "")
+    (b.closed_at || b.created_at || "").localeCompare(
+      a.closed_at || a.created_at || ""
+    )
   );
 
   sorted.forEach((order) => {
     const fulfill = (order.fulfillments && order.fulfillments[0]) || null;
-    const pickupAt = fulfill?.pickup_details?.pickup_at || "";
+    const pickupDetails = fulfill?.pickup_details || {};
+    const pickupAt = pickupDetails.pickup_at || "";
     const pickupDate = pickupAt ? pickupAt.slice(0, 10) : "N/A";
     const pickupTime = pickupAt ? pickupAt.slice(11, 16) : "";
 
+    const recipient = pickupDetails.recipient || {};
+    const customerName = recipient.display_name || "";
+    const customerPhone = recipient.phone_number || "";
+    const customerEmail = recipient.email_address || "";
+
+    const donutLines = (order.line_items || []).filter(
+      (li) => li.name !== "Pickup Details"
+    );
+
     let donutsInOrder = 0;
-    (order.line_items || []).forEach((li) => {
-      if (li.name === "Pickup Details") return;
+    donutLines.forEach((li) => {
       const q = parseInt(li.quantity || "0", 10);
       if (!isNaN(q)) donutsInOrder += q;
     });
 
-    const total = order.total_money
+    const totalAmount = order.total_money
       ? (order.total_money.amount / 100).toFixed(2)
       : "0.00";
 
+    const createdAt = order.created_at || "";
+
+    const itemsHtml = donutLines
+      .map((li) => {
+        const q = li.quantity || "0";
+        const name = li.name || "";
+        return `<li class="flex justify-between text-sm">
+                  <span>${q} × ${name}</span>
+                </li>`;
+      })
+      .join("");
+
     container.innerHTML += `
-      <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-        <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+      <div class="p-4 md:p-5 bg-gray-50 border border-gray-200 rounded-lg">
+        <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-3 mb-3">
           <div>
-            <p class="font-bold text-sm md:text-base">Order ID: ${order.id}</p>
-            <p class="text-sm text-gray-600">
-              Pickup: ${pickupDate} ${pickupTime ? "(" + pickupTime + ")" : ""}
+            <p class="text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">
+              Pickup
             </p>
-            <p class="text-sm text-gray-600">
-              Donuts: ${donutsInOrder}
+            <p class="text-sm">
+              ${pickupDate}
+              ${pickupTime ? `<span class="text-gray-500">(${pickupTime})</span>` : ""}
+            </p>
+            <p class="text-sm text-gray-600 mt-1">
+              Donuts: <span class="font-semibold">${donutsInOrder}</span>
             </p>
           </div>
+
           <div class="text-right">
-            <p class="font-bold text-lg">$${total}</p>
-            <p class="text-xs text-gray-500 mt-1">
-              Created: ${order.created_at || ""}
+            <p class="text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">
+              Total
             </p>
+            <p class="text-lg font-semibold">$${totalAmount}</p>
+            <p class="text-[11px] text-gray-500 mt-1">
+              Created: ${createdAt}
+            </p>
+            <p class="text-[11px] text-gray-400 mt-1">
+              Order ID: ${order.id}
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-gray-200 pt-3">
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">
+              Customer
+            </p>
+            <p class="text-sm">${customerName || "-"}</p>
+            <p class="text-xs text-gray-600">
+              ${customerPhone || ""}
+            </p>
+            <p class="text-xs text-gray-600 break-all">
+              ${customerEmail || ""}
+            </p>
+          </div>
+
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">
+              Items
+            </p>
+            <ul class="space-y-1">
+              ${itemsHtml || "<li class='text-xs text-gray-500'>No items</li>"}
+            </ul>
           </div>
         </div>
       </div>
@@ -254,21 +357,15 @@ function renderOrdersList() {
   });
 }
 
-/* ----------------------- REFRESH BUTTON ------------------------ */
-async function loadOrders() {
-  const container = document.getElementById("orders-list");
-  container.innerHTML = "<div class='text-gray-500 italic'>Loading…</div>";
-  try {
-    await loadAllOrdersFromSquare();
-    renderDailySummary();
-    renderOrdersList();
-  } catch (err) {
-    console.error("Refresh error:", err);
-    container.innerHTML = "<div class='text-red-600'>Error reloading orders.</div>";
-  }
+/* ----------------------- LAST REFRESH LABEL ----------------- */
+function renderLastRefresh() {
+  const el = document.getElementById("last-refresh");
+  if (!el || !LAST_REFRESH_AT) return;
+  el.textContent =
+    "Last refresh: " +
+    LAST_REFRESH_AT.toLocaleTimeString("en-US", { hour12: false });
 }
 </script>
-
 
 </body>
 </html>
