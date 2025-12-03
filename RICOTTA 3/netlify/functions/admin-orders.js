@@ -2,11 +2,12 @@
 const https = require("https");
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
-const LOCATION_ID = process.env.SQUARE_LOCATION_ID || "L54AH5T8V5HVN";
-const DAILY_LIMIT = 250;
+const SQUARE_LOCATION_ID =
+  process.env.SQUARE_LOCATION_ID || "L54AH5T8V5HVN";
 
-// חנוכה – כמו באתר
-const HANUKKAH_DAYS = [
+// אותם ערכים כמו באתר / באדמין
+const DAILY_LIMIT = 250;
+const DAYS = [
   "2025-12-15",
   "2025-12-16",
   "2025-12-17",
@@ -53,11 +54,7 @@ function callSquare(path, method, bodyObj) {
   });
 }
 
-exports.handler = async (event) => {
-  if (event.httpMethod !== "GET") {
-    return { statusCode: 405, body: "Method Not Allowed" };
-  }
-
+exports.handler = async () => {
   if (!SQUARE_ACCESS_TOKEN) {
     return {
       statusCode: 500,
@@ -66,16 +63,14 @@ exports.handler = async (event) => {
   }
 
   try {
-    // נטען הזמנות מ־Orders API
+    // מחפשים את כל ההזמנות בחנוכה
     const searchBody = {
-      location_ids: [LOCATION_ID],
+      location_ids: [SQUARE_LOCATION_ID],
       query: {
         filter: {
-          state_filter: {
-            states: ["COMPLETED"], // רק הזמנות ששולמו
-          },
           date_time_filter: {
-            created_at: {
+            // closed_at עדיף, אבל אם אין – ניקח created_at
+            closed_at: {
               start_at: "2025-12-14T00:00:00-05:00",
               end_at: "2025-12-23T23:59:59-05:00",
             },
@@ -84,7 +79,11 @@ exports.handler = async (event) => {
       },
     };
 
-    const result = await callSquare("/v2/orders/search", "POST", searchBody);
+    const result = await callSquare(
+      "/v2/orders/search",
+      "POST",
+      searchBody
+    );
 
     if (result.statusCode >= 400 || result.body.errors) {
       console.error("Square orders error:", result.body);
@@ -100,70 +99,88 @@ exports.handler = async (event) => {
 
     const orders = result.body.orders || [];
 
-    // סיכום לפי יום איסוף + רשימת הזמנות
-    const dayCounts = {};
-    const ordersOut = [];
+    const countsByDate = {};
+    const cleanedOrders = [];
 
     for (const order of orders) {
+      // -------- 1) דילוג על הזמנות שלא בתאריכים שלנו --------
       const fulfill = (order.fulfillments && order.fulfillments[0]) || null;
       const pickupAt = fulfill?.pickup_details?.pickup_at || null;
+      if (!pickupAt) continue;
 
-      let pickupDate = null;
-      let pickupTime = null;
+      const pickupDate = pickupAt.slice(0, 10);
+      if (!DAYS.includes(pickupDate)) continue;
 
-      if (pickupAt) {
-        pickupDate = pickupAt.slice(0, 10); // YYYY-MM-DD
-        pickupTime = pickupAt.slice(11, 16); // HH:MM
-      }
+      // -------- 2) דילוג על הזמנות שבוטלו / זוכו --------
+      // net_amounts.total_money = סכום נטו אחרי החזרים
+      const netAmount =
+        order.net_amounts?.total_money?.amount ??
+        order.total_money?.amount ??
+        0;
 
+      // אם הנטו 0 או פחות – כנראה בוטל/זוכה → מדלגים
+      if (netAmount <= 0) continue;
+
+      // למקרה שמשחקים עם fulfillments – אם כולן CANCELED גם מדלגים
+      const allFulfillCanceled =
+        Array.isArray(order.fulfillments) &&
+        order.fulfillments.length > 0 &&
+        order.fulfillments.every((f) =>
+          ["CANCELED", "FAILED"].includes(f.state)
+        );
+
+      if (allFulfillCanceled) continue;
+
+      // -------- 3) ספירת סופגניות בהזמנה --------
       let donutsInOrder = 0;
       for (const li of order.line_items || []) {
+        // לא סופרים את שורת "Pickup Details"
         if (li.name === "Pickup Details") continue;
+
         const q = parseInt(li.quantity || "0", 10);
         if (!isNaN(q)) donutsInOrder += q;
       }
 
-      if (pickupDate) {
-        if (!dayCounts[pickupDate]) dayCounts[pickupDate] = 0;
-        dayCounts[pickupDate] += donutsInOrder;
-      }
+      if (donutsInOrder <= 0) continue;
 
-      const recipient = fulfill?.pickup_details?.recipient || {};
-      const totalCents = order.total_money ? order.total_money.amount : null;
+      // עדכון סך ליום
+      if (!countsByDate[pickupDate]) countsByDate[pickupDate] = 0;
+      countsByDate[pickupDate] += donutsInOrder;
 
-      ordersOut.push({
+      // דחיפת ההזמנה ל־UI של Paid Orders
+      const pickupTime = pickupAt.slice(11, 16);
+
+      cleanedOrders.push({
         id: order.id,
         pickupDate,
         pickupTime,
         donuts: donutsInOrder,
-        totalCents,
-        customerName: recipient.display_name || "",
-        customerPhone: recipient.phone_number || "",
-        customerEmail: recipient.email_address || "",
-        createdAt: order.created_at || "",
+        total: (netAmount / 100).toFixed(2),
+        createdAt: order.closed_at || order.created_at || "",
       });
     }
 
-    const daysSummary = HANUKKAH_DAYS.map((date) => {
-      const used = dayCounts[date] || 0;
-      const remaining = Math.max(DAILY_LIMIT - used, 0);
+    // -------- 4) בניית סיכום ימים לאדמין --------
+    const days = DAYS.map((date) => {
+      const used = countsByDate[date] || 0;
       return {
         date,
         used,
-        remaining,
-        limit: DAILY_LIMIT,
+        remaining: Math.max(DAILY_LIMIT - used, 0),
       };
     });
 
     return {
       statusCode: 200,
       body: JSON.stringify({
-        daysSummary,
-        orders: ordersOut,
+        days,
+        orders: cleanedOrders.sort((a, b) =>
+          (b.createdAt || "").localeCompare(a.createdAt || "")
+        ),
       }),
     };
   } catch (err) {
-    console.error("Admin orders function error:", err);
+    console.error("admin-orders function error:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({
