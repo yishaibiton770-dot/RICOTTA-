@@ -1,25 +1,28 @@
 // netlify/functions/create-checkout-link.js
+
 const https = require("https");
 const crypto = require("crypto");
 
+/** ==== SQUARE CONFIG ==== */
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
-const LOCATION_ID = process.env.SQUARE_LOCATION_ID || "L54AH5T8V5HVN"; // ה־ID שנתת
-const TAX_PERCENT = "8.875"; // אחוז מס בסקוור
-const DAILY_LIMIT = 250;     // מקסימום דונאטס ליום
+const LOCATION_ID = process.env.SQUARE_LOCATION_ID || "L54AH5T8V5HVN";
+const TAX_PERCENT = "8.875"; // tax is calculated *inside* Square
 
-function callSquare(path, method, bodyObj) {
+/** ==== SUPABASE CONFIG ==== */
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const DAILY_LIMIT = 250; // מקסימום 250 סופגניות ליום
+
+/** -------- Generic HTTPS helper -------- */
+function callHttps(hostname, path, method, headers, bodyObj) {
   return new Promise((resolve, reject) => {
     const body = bodyObj ? JSON.stringify(bodyObj) : null;
 
     const options = {
-      hostname: "connect.squareup.com",
+      hostname,
       path,
       method,
-      headers: {
-        "Square-Version": "2025-01-15",
-        Authorization: `Bearer ${SQUARE_ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-      },
+      headers,
     };
 
     const req = https.request(options, (res) => {
@@ -30,7 +33,7 @@ function callSquare(path, method, bodyObj) {
         try {
           json = JSON.parse(data);
         } catch {
-          json = { raw: data };
+          json = data ? { raw: data } : {};
         }
         resolve({ statusCode: res.statusCode, body: json });
       });
@@ -43,84 +46,46 @@ function callSquare(path, method, bodyObj) {
   });
 }
 
-/**
- * מחזיר תחום שעות (start_at / end_at) ליום מסוים לפי America/New_York
- */
-function buildNYDayRange(dateStr) {
-  // dateStr בפורמט YYYY-MM-DD
-  const start = `${dateStr}T00:00:00-05:00`;
-  const end = `${dateStr}T23:59:59-05:00`;
-  return { start, end };
+/** -------- Square helper -------- */
+function callSquare(path, method, bodyObj) {
+  return callHttps(
+    "connect.squareup.com",
+    path,
+    method,
+    {
+      "Square-Version": "2025-01-15",
+      Authorization: `Bearer ${SQUARE_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    bodyObj
+  );
 }
 
-/**
- * סופר כמה דונאטס כבר מוזמנים ליום נתון (לפי fulfillment pickup_at)
- */
-async function getExistingQtyForDate(pickupDate) {
-  if (!pickupDate) return 0;
+/** -------- Supabase helper (REST) -------- */
+function callSupabase(path, method, bodyObj) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    // אם לא מוגדר – לא חוסם את התשלום, פשוט מדלג על מגבלה
+    return Promise.resolve({
+      statusCode: 501,
+      body: { error: "Supabase not configured" },
+    });
+  }
 
-  const { start, end } = buildNYDayRange(pickupDate);
+  const url = new URL(SUPABASE_URL);
 
-  const body = {
-    location_ids: [LOCATION_ID],
-    query: {
-      filter: {
-        fulfillment_filter: {
-          fulfillment_types: ["PICKUP"],
-          fulfillment_states: [
-            "PROPOSED",
-            "RESERVED",
-            "PREPARED",
-            "COMPLETED",
-          ],
-        },
-        fulfillment_time_filter: {
-          fulfillment_at: {
-            start_at: start,
-            end_at: end,
-          },
-        },
-      },
-    },
-    limit: 100,
+  const headers = {
+    apikey: SUPABASE_SERVICE_KEY,
+    Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+    "Content-Type": "application/json",
+    Prefer: "return=representation",
   };
 
-  let cursor = null;
-  let totalQty = 0;
-
-  do {
-    const res = await callSquare(
-      "/v2/orders/search",
-      "POST",
-      cursor ? { ...body, cursor } : body
-    );
-
-    if (res.statusCode >= 400 || res.body.errors) {
-      console.error("SearchOrders error:", res.body);
-      // במקרה כזה נחזור 0 כדי לא לחסום הזמנה בגלל באג חיצוני
-      // אם תרצה אפשר להפוך את זה ל־error חזק
-      return 0;
-    }
-
-    const orders = res.body.orders || [];
-    for (const order of orders) {
-      const lineItems = order.line_items || [];
-      for (const li of lineItems) {
-        // מדלגים על שורת INFO (0 דולר) וסופרים כל מה שיש לו מחיר > 0
-        const amount = li.base_price_money?.amount ?? 0;
-        if (amount > 0) {
-          const q = parseInt(li.quantity || "0", 10);
-          if (!isNaN(q)) totalQty += q;
-        }
-      }
-    }
-
-    cursor = res.body.cursor || null;
-  } while (cursor);
-
-  return totalQty;
+  return callHttps(url.hostname, `${url.pathname}/rest/v1${path}`, method, headers, bodyObj);
 }
 
+/** =======================================================
+ *                Netlify Function Handler
+ * =======================================================*/
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
@@ -138,8 +103,8 @@ exports.handler = async (event) => {
       currency = "USD",
       redirectUrlBase,
       pickupDate,
-      pickupTime,       // "10:00 - 11:00"
-      pickupWindow,     // { from: "10:00", to: "11:00" }
+      pickupTime, // "10:00 - 11:00"
+      pickupWindow, // לא חובה מהפרונט
       customerName,
       customerPhone,
       customerEmail,
@@ -153,32 +118,71 @@ exports.handler = async (event) => {
       };
     }
 
-    // כמות דונאטס בהזמנה הנוכחית
-    const currentQty = cartItems.reduce((sum, item) => {
-      const q = parseInt(item.quantity || 0, 10);
-      return sum + (isNaN(q) ? 0 : q);
-    }, 0);
+    if (!pickupDate) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Pickup date is required" }),
+      };
+    }
 
-    // אם יש תאריך – בודקים כמה כבר מוזמן ליום הזה
-    if (pickupDate) {
-      const existing = await getExistingQtyForDate(pickupDate);
-      const combined = existing + currentQty;
+    /** ============ 1. INVENTORY LIMIT (SUPABASE) ============ */
+    const totalUnitsInOrder = cartItems.reduce(
+      (sum, item) => sum + Number(item.quantity || 0),
+      0
+    );
 
-      if (combined > DAILY_LIMIT) {
-        const remaining = Math.max(DAILY_LIMIT - existing, 0);
+    let usedToday = 0;
+    let inventoryRow = null;
+
+    if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+      // 1. לקרוא מה־DB כמה כבר הוזמן לתאריך הזה
+      const invRes = await callSupabase(
+        `/daily_inventory?date=eq.${pickupDate}&select=id,total_units&limit=1`,
+        "GET"
+      );
+
+      if (invRes.statusCode === 200 && Array.isArray(invRes.body) && invRes.body.length > 0) {
+        inventoryRow = invRes.body[0];
+        usedToday = Number(inventoryRow.total_units || 0);
+      }
+
+      const newTotal = usedToday + totalUnitsInOrder;
+
+      if (newTotal > DAILY_LIMIT) {
+        const remaining = Math.max(DAILY_LIMIT - usedToday, 0);
         const msg =
-          remaining > 0
-            ? `We only have ${remaining} donuts left for this day. Please reduce your quantity or choose another date.`
-            : `We’re fully booked for this day. Please choose another date.`;
+          remaining <= 0
+            ? "We’re fully booked for this date. Please choose another date."
+            : `Only ${remaining} donuts left for this date. Please reduce your quantity or choose another date.`;
 
         return {
           statusCode: 400,
-          body: JSON.stringify({ error: msg }),
+          body: JSON.stringify({ error: msg, code: "INVENTORY_LIMIT" }),
         };
+      }
+
+      // 2. לעדכן / ליצור רשומה חדשה
+      if (inventoryRow) {
+        const updateRes = await callSupabase(
+          `/daily_inventory?id=eq.${inventoryRow.id}`,
+          "PATCH",
+          { total_units: newTotal }
+        );
+        if (updateRes.statusCode >= 400) {
+          console.error("Supabase update error:", updateRes.body);
+        }
+      } else {
+        const insertRes = await callSupabase(`/daily_inventory`, "POST", {
+          date: pickupDate,
+          total_units: newTotal,
+        });
+        if (insertRes.statusCode >= 400) {
+          console.error("Supabase insert error:", insertRes.body);
+        }
       }
     }
 
-    /* ---------- תיאור איסוף לטיקט ---------- */
+    /** ============ 2. BUILD PICKUP TEXT ============ */
     let pickupLabel = "";
     let pickupAt = null;
 
@@ -206,7 +210,7 @@ exports.handler = async (event) => {
           ? pickupTime.match(/^(\d{2}:\d{2})/)[1]
           : "10:00");
 
-      pickupAt = `${pickupDate}T${fromStr}:00-05:00`; // ניו יורק
+      pickupAt = `${pickupDate}T${fromStr}:00-05:00`; // America/New_York
     } else if (pickupDate) {
       pickupLabel = `Pickup: ${pickupDate}`;
     }
@@ -221,7 +225,7 @@ exports.handler = async (event) => {
 
     const infoText = infoLines.join("\n");
 
-    /* ---------- שורות מוצרים ---------- */
+    /** ============ 3. BUILD ORDER LINE ITEMS ============ */
     const lineItems = cartItems.map((item) => ({
       name: item.name,
       quantity: String(item.quantity),
@@ -231,6 +235,7 @@ exports.handler = async (event) => {
       },
     }));
 
+    // שורת מידע באפס דולר שתופיע על הטיקט
     if (infoText) {
       lineItems.push({
         name: "Pickup Details",
@@ -240,7 +245,7 @@ exports.handler = async (event) => {
       });
     }
 
-    /* ---------- Fulfillment לדשבורד ---------- */
+    /** ============ 4. FULFILLMENT לדשבורד ============ */
     const fulfillments = pickupAt
       ? [
           {
@@ -260,7 +265,7 @@ exports.handler = async (event) => {
         ]
       : undefined;
 
-    /* ---------- TAX אמיתי בסקוור ---------- */
+    /** ============ 5. ORDER כולל TAX אמיתי ============ */
     const order = {
       location_id: LOCATION_ID,
       line_items: lineItems,
@@ -287,6 +292,7 @@ exports.handler = async (event) => {
       },
     };
 
+    /** ============ 6. CALL SQUARE ============ */
     const result = await callSquare(
       "/v2/online-checkout/payment-links",
       "POST",
@@ -313,7 +319,9 @@ exports.handler = async (event) => {
     console.error("Function error:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message || "Unexpected server error" }),
+      body: JSON.stringify({
+        error: err.message || "Unexpected server error",
+      }),
     };
   }
 };
