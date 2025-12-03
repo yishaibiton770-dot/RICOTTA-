@@ -61,25 +61,6 @@
   </div>
 
 <script>
-  // כל ההזמנות *לפני* התאריך הזה לא נספרות בכלל (ניסויים וכו')
-const GO_LIVE_AT = "2025-12-04T00:00:00-05:00"; // תעדכן אם אתה רוצה תאריך אחר
-
-/* ----------------------- AUTH ------------------------- */
-function loginAdmin() {
-  const pass = document.getElementById("admin-password").value.trim();
-
-  // סיסמת כניסה (תשנה למה שאתה רוצה)
-  if (pass === "ricotta999") {
-    document.getElementById("login-screen").classList.add("hidden");
-    document.getElementById("admin-panel").classList.remove("hidden");
-    loadAdminData();
-  } else {
-    document.getElementById("login-error").classList.remove("hidden");
-  }
-}
-
-/* ----------------------- CONFIG ------------------------ */
-
 // כמה סופגניות מותר ליום – לטקסט בלבד (החישוב עצמו בשרת)
 const DAILY_LIMIT = 250;
 
@@ -91,6 +72,19 @@ const DAYS = [
 
 let ORDERS_CACHE = [];
 let DAILY_MAP = {}; // { '2025-12-18': { used, remaining } }
+
+/* ----------------------- AUTH ------------------------- */
+function loginAdmin() {
+  const pass = document.getElementById("admin-password").value.trim();
+
+  if (pass === "ricotta999") {
+    document.getElementById("login-screen").classList.add("hidden");
+    document.getElementById("admin-panel").classList.remove("hidden");
+    loadAdminData();
+  } else {
+    document.getElementById("login-error").classList.remove("hidden");
+  }
+}
 
 /* ----------------------- LOAD DATA FROM SERVER ------------------------ */
 async function loadAdminData() {
@@ -113,10 +107,7 @@ async function loadAdminData() {
 
     if (!res.ok) {
       console.error("HTTP error:", res.status, data);
-      throw new Error(
-        data.error ||
-        `HTTP ${res.status}`
-      );
+      throw new Error(data.error || `HTTP ${res.status}`);
     }
 
     if (!data.success) {
@@ -144,7 +135,6 @@ async function loadAdminData() {
     `;
   }
 }
-
 
 /* ----------------------- RENDER DAILY SUMMARY ------------------------ */
 function renderDailySummary() {
