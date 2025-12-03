@@ -50,10 +50,9 @@ function callSquare(path, method, bodyObj) {
   });
 }
 
-// ----- פונקציה לקבלת כמות ששולמה כבר ליום מסוים -----
+// ----- כמה כבר "נצרך" ליום מסוים (סופגניות ששולמו) -----
 async function getUsedQuantityForDate(dateStr) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    // אם אין חיבור ל־Supabase – לא חוסמים, רק מתריעים בלוג
     console.warn("Supabase env not set, skipping availability check");
     return 0;
   }
@@ -72,7 +71,7 @@ async function getUsedQuantityForDate(dateStr) {
 
   if (!res.ok) {
     console.error("Supabase error:", data);
-    // במקרה של בעיה ב־Supabase – לא חוסמים מכירה, רק מחזירים 0
+    // אם יש בעיה ב־Supabase – לא לחסום לקוח, רק להחזיר 0
     return 0;
   }
 
@@ -99,7 +98,7 @@ exports.handler = async (event) => {
       redirectUrlBase,
       pickupDate,
       pickupTime, // "10:00 - 11:00"
-      pickupWindow, // { from: "10:00", to: "11:00" } אם תרצה בעתיד
+      pickupWindow, // אופציונלי לעתיד
       customerName,
       customerPhone,
       customerEmail,
@@ -120,8 +119,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // ====== בדיקת מלאי יומי ב־Supabase (רק הזמנות ששולמו!) ======
-    // סך הכל סופגניות בהזמנה הנוכחית
+    // ====== בדיקת מלאי יומי ב־Supabase ======
     const requestedQty = cartItems.reduce(
       (sum, item) => sum + Number(item.quantity || 0),
       0
@@ -131,18 +129,17 @@ exports.handler = async (event) => {
     const remaining = DAILY_LIMIT - alreadyUsed;
 
     if (remaining <= 0) {
-      // היום הזה כבר מלא
       return {
         statusCode: 409,
         body: JSON.stringify({
           error: "SOLD_OUT",
-          message: "We’re fully booked for this day. Please choose another date.",
+          message:
+            "We’re fully booked for this day. Please choose another date.",
         }),
       };
     }
 
     if (requestedQty > remaining) {
-      // נשארו פחות ממה שהוא מנסה להזמין
       return {
         statusCode: 409,
         body: JSON.stringify({
@@ -152,9 +149,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // ====== מכאן – המשך הקוד הישן שעבד לך טוב ======
-
-    // טקסט יפה לאיסוף
+    // ====== מפה – אותו לוגיקה ישנה שעבדה לך ======
     let pickupLabel = "";
     let pickupAt = null;
 
@@ -182,7 +177,7 @@ exports.handler = async (event) => {
           ? pickupTime.match(/^(\d{2}:\d{2})/)[1]
           : "10:00");
 
-      pickupAt = `${pickupDate}T${fromStr}:00-05:00`; // ניו יורק
+      pickupAt = `${pickupDate}T${fromStr}:00-05:00`;
     } else if (pickupDate) {
       pickupLabel = `Pickup: ${pickupDate}`;
     }
@@ -197,17 +192,15 @@ exports.handler = async (event) => {
 
     const infoText = infoLines.join("\n");
 
-    // שורות מוצרים
     const lineItems = cartItems.map((item) => ({
       name: item.name,
       quantity: String(item.quantity),
       base_price_money: {
-        amount: Math.round(item.unitAmountCents), // לפני מס
+        amount: Math.round(item.unitAmountCents),
         currency,
       },
     }));
 
-    // שורת מידע באפס דולר לטיקט הגדול / ריפאנד
     if (infoText) {
       lineItems.push({
         name: "Pickup Details",
@@ -217,7 +210,6 @@ exports.handler = async (event) => {
       });
     }
 
-    // Fulfillment לדשבורד
     const fulfillments = pickupAt
       ? [
           {
@@ -237,7 +229,6 @@ exports.handler = async (event) => {
         ]
       : undefined;
 
-    // TAX אמיתי בסקוור
     const order = {
       location_id: LOCATION_ID,
       line_items: lineItems,
@@ -247,7 +238,7 @@ exports.handler = async (event) => {
           name: "Sales Tax",
           type: "ADDITIVE",
           scope: "ORDER",
-          percentage: TAX_PERCENT, // 8.875%
+          percentage: TAX_PERCENT,
         },
       ],
     };
