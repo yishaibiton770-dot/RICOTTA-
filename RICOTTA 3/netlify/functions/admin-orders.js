@@ -5,8 +5,10 @@ const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
 const SQUARE_LOCATION_ID =
   process.env.SQUARE_LOCATION_ID || "L54AH5T8V5HVN";
 
-// אותם ערכים כמו באתר / באדמין
+// כמה סופגניות ליום
 const DAILY_LIMIT = 250;
+
+// טווח הימים של חנוכה (לפי ה-PICKUP)
 const DAYS = [
   "2025-12-15",
   "2025-12-16",
@@ -63,13 +65,15 @@ exports.handler = async () => {
   }
 
   try {
-    // מחפשים את כל ההזמנות בחנוכה
+    // מחפשים רק הזמנות במצב COMPLETED בתוך חלון הזמן של חנוכה
     const searchBody = {
       location_ids: [SQUARE_LOCATION_ID],
       query: {
         filter: {
+          state_filter: {
+            states: ["COMPLETED"],
+          },
           date_time_filter: {
-            // closed_at עדיף, אבל אם אין – ניקח created_at
             closed_at: {
               start_at: "2025-12-14T00:00:00-05:00",
               end_at: "2025-12-23T23:59:59-05:00",
@@ -103,7 +107,6 @@ exports.handler = async () => {
     const cleanedOrders = [];
 
     for (const order of orders) {
-      // -------- 1) דילוג על הזמנות שלא בתאריכים שלנו --------
       const fulfill = (order.fulfillments && order.fulfillments[0]) || null;
       const pickupAt = fulfill?.pickup_details?.pickup_at || null;
       if (!pickupAt) continue;
@@ -111,43 +114,30 @@ exports.handler = async () => {
       const pickupDate = pickupAt.slice(0, 10);
       if (!DAYS.includes(pickupDate)) continue;
 
-      // -------- 2) דילוג על הזמנות שבוטלו / זוכו --------
-      // net_amounts.total_money = סכום נטו אחרי החזרים
-      const netAmount =
-        order.net_amounts?.total_money?.amount ??
-        order.total_money?.amount ??
-        0;
+      // ----- בדיקת ביטול / החזר -----
+      const total = order.total_money?.amount ?? 0;
+      const returned = order.total_returned_money?.amount ?? 0;
 
-      // אם הנטו 0 או פחות – כנראה בוטל/זוכה → מדלגים
-      if (netAmount <= 0) continue;
+      // אם הסכום הכולל 0 או קטן – לא רלוונטי
+      if (total <= 0) continue;
 
-      // למקרה שמשחקים עם fulfillments – אם כולן CANCELED גם מדלגים
-      const allFulfillCanceled =
-        Array.isArray(order.fulfillments) &&
-        order.fulfillments.length > 0 &&
-        order.fulfillments.every((f) =>
-          ["CANCELED", "FAILED"].includes(f.state)
-        );
+      // אם כל הסכום הוחזר – נחשבת כלא קיימת מבחינת מלאי
+      if (returned >= total) {
+        continue;
+      }
 
-      if (allFulfillCanceled) continue;
-
-      // -------- 3) ספירת סופגניות בהזמנה --------
+      // ----- ספירת סופגניות בהזמנה -----
       let donutsInOrder = 0;
       for (const li of order.line_items || []) {
-        // לא סופרים את שורת "Pickup Details"
         if (li.name === "Pickup Details") continue;
-
         const q = parseInt(li.quantity || "0", 10);
         if (!isNaN(q)) donutsInOrder += q;
       }
-
       if (donutsInOrder <= 0) continue;
 
-      // עדכון סך ליום
       if (!countsByDate[pickupDate]) countsByDate[pickupDate] = 0;
       countsByDate[pickupDate] += donutsInOrder;
 
-      // דחיפת ההזמנה ל־UI של Paid Orders
       const pickupTime = pickupAt.slice(11, 16);
 
       cleanedOrders.push({
@@ -155,12 +145,11 @@ exports.handler = async () => {
         pickupDate,
         pickupTime,
         donuts: donutsInOrder,
-        total: (netAmount / 100).toFixed(2),
+        total: (total - returned) / 100, // מה שהלקוחה באמת משלמת בסוף
         createdAt: order.closed_at || order.created_at || "",
       });
     }
 
-    // -------- 4) בניית סיכום ימים לאדמין --------
     const days = DAYS.map((date) => {
       const used = countsByDate[date] || 0;
       return {
