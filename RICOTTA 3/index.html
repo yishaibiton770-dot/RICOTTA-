@@ -659,7 +659,16 @@
 
     document.addEventListener("DOMContentLoaded", () => {
       window.scrollTo(0, 0);
+const dateInput = document.querySelector('input[name="date"]');
 
+dateInput.addEventListener("change", () => {
+  const min = new Date("2025-12-15");
+  const max = new Date("2025-12-22");
+  const selected = new Date(dateInput.value);
+
+  if (selected < min) dateInput.value = "2025-12-15";
+  if (selected > max) dateInput.value = "2025-12-22";
+});
       renderMenu();
       loadCartFromSession();
 
@@ -792,4 +801,5 @@
 
 </body>
 </html>
+
 
