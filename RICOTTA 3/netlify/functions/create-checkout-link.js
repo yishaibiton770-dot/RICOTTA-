@@ -5,11 +5,8 @@ const crypto = require("crypto");
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
 const LOCATION_ID = process.env.SQUARE_LOCATION_ID || "L54AH5T8V5HVN";
 
-// מס בסקוור
-const TAX_PERCENT = "8.875";
-
-// מקסימום סופגניות ליום
-const DAILY_LIMIT = 250;
+const TAX_PERCENT = "8.875";    // אחוז מס בסקוור (טקסט)
+const DAILY_LIMIT = 250;        // 250 סופגניות ליום
 
 function callSquare(path, method, bodyObj) {
   return new Promise((resolve, reject) => {
@@ -48,48 +45,45 @@ function callSquare(path, method, bodyObj) {
 }
 
 /**
- * סופר כמה סופגניות כבר נמכרו (COMPLETED) ל-pickupDate מסוים
- * לפי ה-fulfillment pickup_details.pickup_at
+ * סופר כמה סופגניות כבר "נתפסו" ליום מסוים,
+ * לפי הזמנות COMPLETED בלבד בסקוור.
  */
-async function getUsedUnitsForDate(pickupDate) {
-  if (!pickupDate) return 0;
+async function countDonutsForDate(pickupDate, currency = "USD") {
+  let allOrders = [];
+  let cursor = null;
 
-  // מחפשים בחודש של התאריך (כדי לכלול הזמנות שנעשו מראש)
-  const monthPrefix = pickupDate.slice(0, 7); // "2025-12"
-  const start_at = `${monthPrefix}-01T00:00:00-05:00`;
-  const end_at = `${monthPrefix}-31T23:59:59-05:00`;
-
-  const body = {
-    location_ids: [LOCATION_ID],
-    query: {
-      filter: {
-        state_filter: {
-          states: ["COMPLETED"],
-        },
-        date_time_filter: {
-          created_at: {
-            start_at,
-            end_at,
+  do {
+    const body = {
+      location_ids: [LOCATION_ID],
+      query: {
+        filter: {
+          state_filter: {
+            states: ["COMPLETED"],   // רק הזמנות שהושלמו
           },
         },
       },
-    },
-  };
+      cursor: cursor || undefined,
+    };
 
-  const result = await callSquare("/v2/orders/search", "POST", body);
+    const result = await callSquare("/v2/orders/search", "POST", body);
 
-  if (result.statusCode >= 400 || result.body.errors) {
-    console.error("Square orders error (inventory check):", result.body);
-    throw new Error(
-      result.body.errors?.[0]?.detail ||
-        "Error checking daily inventory from Square"
-    );
-  }
+    if (result.statusCode >= 400 || result.body.errors) {
+      console.error("Square search error:", result.body);
+      throw new Error(
+        result.body.errors?.[0]?.detail ||
+          "Error searching orders from Square"
+      );
+    }
 
-  const orders = result.body.orders || [];
-  let totalUnits = 0;
+    const orders = result.body.orders || [];
+    allOrders = allOrders.concat(orders);
+    cursor = result.body.cursor || null;
+  } while (cursor);
 
-  for (const order of orders) {
+  // עוברים על כל ההזמנות שה־pickup שלהן לאותו תאריך
+  let totalDonuts = 0;
+
+  for (const order of allOrders) {
     const fulfill = (order.fulfillments && order.fulfillments[0]) || null;
     const pickupAt = fulfill?.pickup_details?.pickup_at || null;
     if (!pickupAt) continue;
@@ -98,13 +92,13 @@ async function getUsedUnitsForDate(pickupDate) {
     if (orderPickupDate !== pickupDate) continue;
 
     for (const li of order.line_items || []) {
-      if (li.name === "Pickup Details") continue; // לא סופרים שורת מידע
+      if (li.name === "Pickup Details") continue; // שורת מידע
       const q = parseInt(li.quantity || "0", 10);
-      if (!isNaN(q)) totalUnits += q;
+      if (!isNaN(q)) totalDonuts += q;
     }
   }
 
-  return totalUnits;
+  return totalDonuts;
 }
 
 exports.handler = async (event) => {
@@ -124,8 +118,8 @@ exports.handler = async (event) => {
       currency = "USD",
       redirectUrlBase,
       pickupDate,
-      pickupTime, // "10:00 - 11:00"
-      pickupWindow, // { from: "10:00", to: "11:00" } - לא חובה
+      pickupTime,      // "10:00 - 11:00"
+      pickupWindow,    // { from: "10:00", to: "11:00" }
       customerName,
       customerPhone,
       customerEmail,
@@ -139,31 +133,33 @@ exports.handler = async (event) => {
       };
     }
 
-    /* ---------- כמה סופגניות מבוקשות עכשיו ---------- */
-    const requestedUnits = cartItems.reduce((sum, item) => {
-      const q = parseInt(item.quantity || 0, 10);
-      return sum + (isNaN(q) ? 0 : q);
-    }, 0);
-
-    if (!pickupDate) {
+    if (!pickupDate || !pickupTime) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "pickupDate is required" }),
+        body: JSON.stringify({ error: "pickupDate and pickupTime are required" }),
       };
     }
 
-    /* ---------- בדיקת LIMIT יומי לפני יצירת לינק ---------- */
-    const alreadyUsed = await getUsedUnitsForDate(pickupDate);
-    const remaining = DAILY_LIMIT - alreadyUsed;
+    // 1) כמה סופגניות הלקוח הזה מבקש בעסקה הזו
+    let requestedDonuts = 0;
+    for (const item of cartItems) {
+      const q = parseInt(item.quantity || 0, 10);
+      if (!isNaN(q)) requestedDonuts += q;
+    }
 
-    if (requestedUnits > remaining) {
+    // 2) כמה כבר נתפס באותו יום לפי הזמנות ששולמו (COMPLETED)
+    const alreadyUsed = await countDonutsForDate(pickupDate, currency);
+    const afterOrder = alreadyUsed + requestedDonuts;
+
+    if (afterOrder > DAILY_LIMIT) {
+      const remaining = Math.max(DAILY_LIMIT - alreadyUsed, 0);
       return {
         statusCode: 400,
         body: JSON.stringify({
           error:
             remaining > 0
-              ? `We only have ${remaining} donuts left for this day. Please reduce the quantity or choose another date.`
-              : "We’re fully booked for this day. Please choose another date.",
+              ? `We only have ${remaining} donuts left for this day. Please reduce your quantity or choose another date.`
+              : `We’re fully booked for this day. Please choose another date.`,
         }),
       };
     }
@@ -185,10 +181,7 @@ exports.handler = async (event) => {
         timeZone: "America/New_York",
       });
 
-      pickupLabel = `Pickup: ${weekday}, ${niceDate} (${pickupTime.replace(
-        "-",
-        "–"
-      )})`;
+      pickupLabel = `Pickup: ${weekday}, ${niceDate} (${pickupTime.replace("-", "–")})`;
 
       const fromStr =
         (pickupWindow && pickupWindow.from) ||
@@ -196,7 +189,7 @@ exports.handler = async (event) => {
           ? pickupTime.match(/^(\d{2}:\d{2})/)[1]
           : "10:00");
 
-      pickupAt = `${pickupDate}T${fromStr}:00-05:00`; // ניו יורק
+      pickupAt = `${pickupDate}T${fromStr}:00-05:00`; // America/New_York
     } else if (pickupDate) {
       pickupLabel = `Pickup: ${pickupDate}`;
     }
@@ -220,6 +213,16 @@ exports.handler = async (event) => {
         currency,
       },
     }));
+
+    // שורת מידע באפס דולר
+    if (infoText) {
+      lineItems.push({
+        name: "Pickup Details",
+        quantity: "1",
+        base_price_money: { amount: 0, currency },
+        note: infoText,
+      });
+    }
 
     /* ---------- Fulfillment לדשבורד ---------- */
     const fulfillments = pickupAt
@@ -298,4 +301,3 @@ exports.handler = async (event) => {
     };
   }
 };
-
