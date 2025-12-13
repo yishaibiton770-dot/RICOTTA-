@@ -4,12 +4,6 @@ const crypto = require("crypto");
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
 const LOCATION_ID = process.env.SQUARE_LOCATION_ID || "L54AH5T8V5HVN";
-const SQUARE_ENV = process.env.SQUARE_ENV || "production"; // "sandbox" | "production"
-
-const SQUARE_HOST =
-  SQUARE_ENV === "sandbox"
-    ? "connect.squareupsandbox.com"
-    : "connect.squareup.com";
 
 // מס בסקוור
 const TAX_PERCENT = "8.875";
@@ -17,23 +11,12 @@ const TAX_PERCENT = "8.875";
 // מקסימום סופגניות ליום
 const DAILY_LIMIT = 250;
 
-/* ------------------ עוזר: URL בסיס לאתר ------------------ */
-function getSiteBaseUrl(event, redirectUrlBase) {
-  if (redirectUrlBase && /^https?:\/\//i.test(redirectUrlBase)) {
-    return redirectUrlBase.replace(/\/+$/, "");
-  }
-  const proto = event.headers["x-forwarded-proto"] || "https";
-  const host = event.headers.host;
-  return `${proto}://${host}`;
-}
-
-/* ------------------ קריאה ל-Square ------------------ */
 function callSquare(path, method, bodyObj) {
   return new Promise((resolve, reject) => {
     const body = bodyObj ? JSON.stringify(bodyObj) : null;
 
     const options = {
-      hostname: SQUARE_HOST,
+      hostname: "connect.squareup.com",
       path,
       method,
       headers: {
@@ -58,15 +41,22 @@ function callSquare(path, method, bodyObj) {
     });
 
     req.on("error", reject);
+
     if (body) req.write(body);
     req.end();
   });
 }
 
-/* ------------------ בדיקת מלאי יומי ------------------ */
+/**
+ * סופר כמה סופגניות כבר נמכרו (COMPLETED) ל-pickupDate מסוים
+ * לפי ה-fulfillment pickup_details.pickup_at
+ */
 async function getUsedUnitsForDate(pickupDate) {
   if (!pickupDate) return 0;
 
+  // חשוב: הזמנה יכולה להיווצר בחודש אחר (לדוגמה: נובמבר) אבל pickup בדצמבר.
+  // לכן לא מגבילים לחודש של pickupDate אלא לטווח רחב ובטוח סביב עונת המכירה.
+  // (העסק קטן, אז זה לא עומס גדול; ואם תרצה—אפשר לצמצם יותר.)
   const start_at = `2025-11-01T00:00:00-05:00`;
   const end_at = `2026-01-15T23:59:59-05:00`;
 
@@ -74,9 +64,14 @@ async function getUsedUnitsForDate(pickupDate) {
     location_ids: [LOCATION_ID],
     query: {
       filter: {
-        state_filter: { states: ["COMPLETED"] },
+        state_filter: {
+          states: ["COMPLETED"],
+        },
         date_time_filter: {
-          created_at: { start_at, end_at },
+          created_at: {
+            start_at,
+            end_at,
+          },
         },
       },
     },
@@ -85,27 +80,33 @@ async function getUsedUnitsForDate(pickupDate) {
   const result = await callSquare("/v2/orders/search", "POST", body);
 
   if (result.statusCode >= 400 || result.body.errors) {
-    console.error("Square inventory error:", result.body);
-    throw new Error("Error checking daily inventory from Square");
+    console.error("Square orders error (inventory check):", result.body);
+    throw new Error(
+      result.body.errors?.[0]?.detail ||
+        "Error checking daily inventory from Square"
+    );
   }
 
   const orders = result.body.orders || [];
   let totalUnits = 0;
 
   for (const order of orders) {
-    const fulfill = order.fulfillments?.[0];
-    const pickupAt = fulfill?.pickup_details?.pickup_at;
+    const fulfill = (order.fulfillments && order.fulfillments[0]) || null;
+    const pickupAt = fulfill?.pickup_details?.pickup_at || null;
     if (!pickupAt) continue;
 
-    if (pickupAt.slice(0, 10) !== pickupDate) continue;
+    const orderPickupDate = pickupAt.slice(0, 10); // yyyy-mm-dd
+    if (orderPickupDate !== pickupDate) continue;
 
+    // סופגניות שנמכרו
     let sold = 0;
     for (const li of order.line_items || []) {
-      if (li.name === "Pickup Details") continue;
+      if (li.name === "Pickup Details") continue; // לא סופרים שורת מידע
       const q = parseInt(li.quantity || "0", 10);
       if (!isNaN(q)) sold += q;
     }
 
+    // סופגניות שהוחזרו/בוטלו (מונע "ננעל" מלאי על הזמנה שבוטלה)
     let returned = 0;
     for (const ret of order.returns || []) {
       for (const rli of ret.return_line_items || []) {
@@ -122,7 +123,6 @@ async function getUsedUnitsForDate(pickupDate) {
   return totalUnits;
 }
 
-/* ------------------ HANDLER ------------------ */
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
@@ -140,8 +140,8 @@ exports.handler = async (event) => {
       currency = "USD",
       redirectUrlBase,
       pickupDate,
-      pickupTime,
-      pickupWindow,
+      pickupTime, // "10:00 - 11:00"
+      pickupWindow, // { from: "10:00", to: "11:00" } - לא חובה
       customerName,
       customerPhone,
       customerEmail,
@@ -149,18 +149,26 @@ exports.handler = async (event) => {
     } = payload;
 
     if (!cartItems || !cartItems.length) {
-      return { statusCode: 400, body: JSON.stringify({ error: "cartItems required" }) };
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "cartItems is required" }),
+      };
     }
+
+    /* ---------- כמה סופגניות מבוקשות עכשיו ---------- */
+    const requestedUnits = cartItems.reduce((sum, item) => {
+      const q = parseInt(item.quantity || 0, 10);
+      return sum + (isNaN(q) ? 0 : q);
+    }, 0);
 
     if (!pickupDate) {
-      return { statusCode: 400, body: JSON.stringify({ error: "pickupDate required" }) };
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "pickupDate is required" }),
+      };
     }
 
-    const requestedUnits = cartItems.reduce(
-      (s, i) => s + parseInt(i.quantity || 0, 10),
-      0
-    );
-
+    /* ---------- בדיקת LIMIT יומי לפני יצירת לינק ---------- */
     const alreadyUsed = await getUsedUnitsForDate(pickupDate);
     const remaining = DAILY_LIMIT - alreadyUsed;
 
@@ -170,48 +178,86 @@ exports.handler = async (event) => {
         body: JSON.stringify({
           error:
             remaining > 0
-              ? `Only ${remaining} donuts left for this day.`
-              : "This day is fully booked.",
+              ? `We only have ${remaining} donuts left for this day. Please reduce the quantity or choose another date.`
+              : "We’re fully booked for this day. Please choose another date.",
         }),
       };
     }
 
-    /* ---------- pickup info ---------- */
-    let pickupAt = null;
+    /* ---------- תיאור איסוף לטיקט ---------- */
     let pickupLabel = "";
+    let pickupAt = null;
 
     if (pickupDate && pickupTime) {
       const d = new Date(pickupDate + "T12:00:00");
-      pickupLabel = `Pickup: ${d.toDateString()} (${pickupTime})`;
+      const weekday = d.toLocaleDateString("en-US", {
+        weekday: "long",
+        timeZone: "America/New_York",
+      });
+      const niceDate = d.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        timeZone: "America/New_York",
+      });
+
+      pickupLabel = `Pickup: ${weekday}, ${niceDate} (${pickupTime.replace(
+        "-",
+        "–"
+      )})`;
 
       const fromStr =
-        pickupWindow?.from ||
-        pickupTime.match(/^(\d{2}:\d{2})/)?.[1] ||
-        "10:00";
+        (pickupWindow && pickupWindow.from) ||
+        (pickupTime.match(/^(\d{2}:\d{2})/)
+          ? pickupTime.match(/^(\d{2}:\d{2})/)[1]
+          : "10:00");
 
-      pickupAt = `${pickupDate}T${fromStr}:00-05:00`;
+      pickupAt = `${pickupDate}T${fromStr}:00-05:00`; // ניו יורק
+    } else if (pickupDate) {
+      pickupLabel = `Pickup: ${pickupDate}`;
     }
 
-    const infoText = [
+    const infoLines = [
       pickupLabel,
-      customerName && `Name: ${customerName}`,
-      customerPhone && `Phone: ${customerPhone}`,
-      customerEmail && `Email: ${customerEmail}`,
-      notes && `Notes: ${notes}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
+      customerName ? `Name: ${customerName}` : "",
+      customerPhone ? `Phone: ${customerPhone}` : "",
+      customerEmail ? `Email: ${customerEmail}` : "",
+      notes ? `Notes: ${notes}` : "",
+    ].filter(Boolean);
 
-    /* ---------- line items ---------- */
+    const infoText = infoLines.join("\n");
+
+    /* ---------- שורות מוצרים ---------- */
     const lineItems = cartItems.map((item) => ({
       name: item.name,
       quantity: String(item.quantity),
       base_price_money: {
-        amount: Math.round(item.unitAmountCents),
+        amount: Math.round(item.unitAmountCents), // לפני מס
         currency,
       },
     }));
 
+    /* ---------- Fulfillment לדשבורד ---------- */
+    const fulfillments = pickupAt
+      ? [
+          {
+            type: "PICKUP",
+            state: "PROPOSED",
+            pickup_details: {
+              schedule_type: "SCHEDULED",
+              pickup_at: pickupAt,
+              note: infoText,
+              recipient: {
+                display_name: customerName || "",
+                phone_number: customerPhone || "",
+                email_address: customerEmail || "",
+              },
+            },
+          },
+        ]
+      : undefined;
+
+    /* ---------- TAX אמיתי בסקוור ---------- */
     const order = {
       location_id: LOCATION_ID,
       line_items: lineItems,
@@ -226,32 +272,15 @@ exports.handler = async (event) => {
       ],
     };
 
-    if (pickupAt) {
-      order.fulfillments = [
-        {
-          type: "PICKUP",
-          state: "PROPOSED",
-          pickup_details: {
-            schedule_type: "SCHEDULED",
-            pickup_at: pickupAt,
-            note: infoText,
-            recipient: {
-              display_name: customerName || "",
-              phone_number: customerPhone || "",
-              email_address: customerEmail || "",
-            },
-          },
-        },
-      ];
+    if (fulfillments) {
+      order.fulfillments = fulfillments;
     }
-
-    const siteBase = getSiteBaseUrl(event, redirectUrlBase);
 
     const body = {
       idempotency_key: crypto.randomBytes(16).toString("hex"),
       order,
       checkout_options: {
-        redirect_url: `${siteBase}/success.html`,
+        redirect_url: `${redirectUrlBase || ""}/success.html`,
       },
     };
 
@@ -273,12 +302,15 @@ exports.handler = async (event) => {
       };
     }
 
-    return { statusCode: 200, body: JSON.stringify(result.body) };
+    return {
+      statusCode: 200,
+      body: JSON.stringify(result.body),
+    };
   } catch (err) {
     console.error("Function error:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message || "Server error" }),
+      body: JSON.stringify({ error: err.message || "Unexpected server error" }),
     };
   }
 };
