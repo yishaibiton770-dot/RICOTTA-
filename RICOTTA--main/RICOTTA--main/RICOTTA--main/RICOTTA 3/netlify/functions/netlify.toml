@@ -1,0 +1,7 @@
+[build]
+base = "RICOTTA--main/RICOTTA--main"
+publish = "RICOTTA 3"
+command = ""
+
+[functions]
+directory = "netlify/functions"
