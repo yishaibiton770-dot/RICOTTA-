@@ -249,29 +249,7 @@
               </div>
               <input type="hidden" name="type" value="Pickup">
             </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
-              <div class="space-y-2">
-                <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Date (Dec 14-22)</label>
-<!-- במקום input[type=date] => SELECT עם רק התאריכים המותרים -->
-<select
-  name="date"
-  required
-  class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent">
-  <option value="">Select a date</option>
-
-  <option value="2025-12-14">Sunday, Dec 14</option>
-  <option value="2025-12-15">Monday, Dec 15</option>
-  <option value="2025-12-16">Tuesday, Dec 16</option>
-  <option value="2025-12-17">Wednesday, Dec 17</option>
-  <option value="2025-12-18">Thursday, Dec 18</option>
-  <option value="2025-12-19">Friday, Dec 19</option>
-  <!-- 2025-12-20 (Saturday) לא מופיע בכלל -->
-  <option value="2025-12-21">Sunday, Dec 21</option>
-  <option value="2025-12-22">Monday, Dec 22</option>
-</select>
 <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Date (Dec 14-22)</label>
-<!-- במקום input[type=date] => SELECT עם רק התאריכים המותרים -->
 <select
   name="date"
   required
@@ -289,19 +267,6 @@
   <option value="2025-12-22">Monday, Dec 22</option>
 </select>
 
-              </div>
-              <div class="space-y-2">
-                <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Pickup Time</label>
-                <select name="time" class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent appearance-none">
-                  <option>10:00 - 11:00</option>
-                  <option>11:00 - 12:00</option>
-                  <option>12:00 - 13:00</option>
-                  <option>13:00 - 14:00</option>
-                  <option>14:00 - 15:00</option>
-                  <option>15:00 - 16:00</option>
-                </select>
-              </div>
-            </div>
 
             <div class="space-y-2">
               <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Notes / Requests</label>
@@ -792,4 +757,5 @@
 
 </body>
 </html>
+
 
