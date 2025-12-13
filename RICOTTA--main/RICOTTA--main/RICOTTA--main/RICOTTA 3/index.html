@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RICOTTA | Boutique Donuts</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { 
+            cream: '#F9F8F6', 
+            chocolate: '#2A221E', 
+            gold: '#BFA67A', 
+            'gold-dark': '#C0B293',
+            'input-bg': '#F4F2EE'
+          },
+          fontFamily: { 
+            serif: ['"Cormorant Garamond"', 'serif'], 
+            display: ['"Playfair Display"', 'serif'] 
+          },
+          letterSpacing: {
+            'widest-xl': '0.25em',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body { background-color: #F9F8F6; color: #2A221E; }
+    .luxury-shadow { box-shadow: 0 20px 40px -10px rgba(63, 47, 40, 0.1); }
+
+    input, select, textarea {
+      background-color: rgba(235, 232, 225, 0.5) !important;
+      border: 1px solid rgba(63, 47, 40, 0.1) !important;
+      border-radius: 0 !important;
+      transition: all 0.3s ease;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #D7C9A8 !important;
+      outline: none;
+      background-color: #fff !important;
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #F7F4EE; }
+    ::-webkit-scrollbar-thumb { background: #D7C9A8; }
+
+    .btn-luxury {
+      position: relative;
+      overflow: hidden;
+      transition: all 0.5s ease;
+    }
+    .btn-luxury:hover {
+      background-color: #D7C9A8;
+      color: #3F2F28;
+      letter-spacing: 0.25em;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-up { 
+      opacity: 0;
+      animation: fadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+    }
+    .delay-100 { animation-delay: 0.2s; }
+    .delay-200 { animation-delay: 0.4s; }
+    .delay-300 { animation-delay: 0.6s; }
+
+    .loader {
+      border: 2px solid #f3f3f3; 
+      border-top: 2px solid #2A221E; 
+      border-radius: 50%; 
+      width: 20px; 
+      height: 20px; 
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* התאמת הבאנר למובייל */
+    @media (max-width: 768px) {
+      .hero-img {
+        object-position: 70% center;
+      }
+    }
+
+    /* Cart Modal Styles */
+    #cart-modal {
+      transition: opacity 0.3s ease-in-out;
+    }
+    #cart-modal.hidden {
+      pointer-events: none;
+      opacity: 0;
+    }
+    #cart-modal:not(.hidden) {
+      pointer-events: auto;
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body class="antialiased min-h-screen flex flex-col font-serif">
+
+  <!-- Navbar -->
+  <nav class="fixed w-full z-50 bg-white/90 backdrop-blur-md border-b border-chocolate/5 transition-all duration-500" id="navbar">
+    <div class="max-w-7xl mx-auto px-6 lg:px-12">
+      <div class="flex justify-between items-center h-20 md:h-24">
+        <div class="flex flex-col items-center cursor-pointer group" onclick="window.scrollTo(0,0)">
+          <span class="font-display text-2xl md:text-3xl tracking-[0.2em] text-chocolate group-hover:text-gold transition-colors duration-500">RICOTTA</span>
+          <span class="font-serif text-[10px] text-chocolate/40 tracking-[0.4em] uppercase mt-1">Boutique Donuts</span>
+        </div>
+
+        <!-- Desktop Nav -->
+        <div class="hidden md:flex items-center space-x-12">
+          <a href="#menu" class="text-sm uppercase tracking-[0.15em] text-chocolate/60 hover:text-chocolate transition-colors">The Collection</a>
+          <a href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253" target="_blank" class="text-chocolate/60 hover:text-chocolate transition-colors">
+            <i class="fa-brands fa-instagram text-lg"></i>
+          </a>
+          <button onclick="scrollToMenu()" class="border border-chocolate/20 px-8 py-3 text-xs uppercase tracking-[0.25em] hover:bg-chocolate hover:text-white transition-all duration-500">
+            Order Now
+          </button>
+          <!-- Desktop Cart Icon -->
+          <div class="relative cursor-pointer" onclick="toggleCart()">
+            <i class="fa-solid fa-bag-shopping text-xl text-chocolate"></i>
+            <span id="desktop-cart-count" class="absolute -top-2 -right-2 bg-gold text-white text-[10px] h-4 w-4 flex items-center justify-center rounded-full hidden">0</span>
+          </div>
+        </div>
+
+        <!-- Mobile Nav -->
+        <div class="md:hidden p-2 cursor-pointer flex items-center gap-4">
+          <a href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253" target="_blank" class="text-chocolate/60 hover:text-chocolate">
+            <i class="fa-brands fa-instagram text-xl"></i>
+          </a>
+          <!-- Mobile Cart Icon -->
+          <div class="relative" onclick="toggleCart()">
+            <i class="fa-solid fa-bag-shopping text-xl text-chocolate"></i>
+            <span id="mobile-cart-count" class="absolute -top-2 -right-2 bg-gold text-white text-[10px] h-4 w-4 flex items-center justify-center rounded-full hidden">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- CART MODAL -->
+  <div id="cart-modal" class="fixed inset-0 z-[100] hidden">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="toggleCart()"></div>
+    <!-- Panel -->
+    <div class="absolute top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl flex flex-col">
+      <div class="p-6 border-b border-chocolate/10 flex justify-between items-center bg-[#F9F8F6]">
+        <h3 class="font-display text-2xl text-chocolate tracking-wide">Your Cart</h3>
+        <button onclick="toggleCart()" class="text-chocolate/50 hover:text-chocolate text-xl">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div id="modal-cart-items" class="flex-1 overflow-y-auto p-6">
+        <div class="text-center py-20 opacity-40 font-serif italic">Your cart is currently empty.</div>
+      </div>
+      <div class="p-6 border-t border-chocolate/10 bg-[#F9F8F6]">
+        <div class="flex justify-between items-end mb-6">
+          <span class="font-serif text-lg text-chocolate/70">Total (incl. tax)</span>
+          <span id="modal-total-price" class="font-display text-3xl text-chocolate">$0.00</span>
+        </div>
+        <button onclick="proceedToCheckout()" class="w-full bg-chocolate text-cream py-4 text-xs uppercase tracking-[0.2em] hover:bg-gold transition-all shadow-lg">
+          Proceed to Checkout
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <section class="relative h-[75vh] md:h-[90vh] min-h-[500px] flex items-center justify-center overflow-hidden bg-cream">
+    <div class="absolute inset-0 z-0">
+      <img src="https://i.postimg.cc/FR4RTRyW/21d15421-7223-4efe-9e38-6ea5a941ac0b-20251125-135133-0000.png" 
+           alt="Ricotta Donuts Banner" 
+           class="w-full h-full object-cover hero-img opacity-100">
+      <div class="absolute inset-0 bg-white/10"></div>
+    </div>
+
+    <div class="relative z-10 text-center px-6 max-w-4xl mx-auto mt-12 space-y-6 md:space-y-8">
+      <h2 class="text-chocolate text-base md:text-lg italic font-light tracking-[0.2em] animate-fade-up">Hanukkah 2025 Collection</h2>
+      <h1 class="text-6xl md:text-9xl text-chocolate font-display tracking-wider animate-fade-up delay-100">RICOTTA</h1>
+      <p class="text-chocolate/90 text-lg md:text-xl italic tracking-wide animate-fade-up delay-200">"A Bite from Dreams"</p>
+      <div class="pt-6 md:pt-8 animate-fade-up delay-300">
+        <button onclick="scrollToMenu()" class="bg-white text-chocolate px-10 py-4 text-xs uppercase tracking-[0.3em] shadow-xl hover:bg-chocolate hover:text-white transition-all duration-500">
+          View The Menu
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Menu Section -->
+  <section id="menu" class="py-20 md:py-32 w-full bg-white relative">
+    <div class="max-w-[1800px] mx-auto px-6 md:px-12">
+      <div class="text-center mb-16 md:mb-24 animate-fade-up delay-300">
+        <h3 class="font-display text-4xl md:text-5xl text-chocolate mb-4 md:mb-6">The Collection</h3>
+        <div class="w-px h-12 md:h-16 bg-gold/30 mx-auto mb-4 md:mb-6"></div>
+        <p class="text-chocolate/60 italic font-light text-base md:text-lg">Handcrafted daily. Limited donuts per day.</p>
+      </div>
+
+      <div id="menu-grid" class="space-y-24 md:space-y-32">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Order Section -->
+  <section id="order" class="bg-[#F4F2EE] py-20 md:py-32 border-t border-chocolate/5">
+    <div class="max-w-7xl mx-auto px-6 md:px-12">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 md:gap-16">
+        
+        <!-- Form -->
+        <div class="lg:col-span-7 bg-white p-8 md:p-16 luxury-shadow">
+          <h3 class="font-display text-3xl md:text-4xl text-chocolate mb-10 md:mb-12">Your Details</h3>
+          <form id="order-form" class="space-y-8 md:space-y-10">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
+              <div class="space-y-2">
+                <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Full Name</label>
+                <input type="text" name="name" required class="w-full p-3 md:p-4 text-lg text-chocolate font-serif placeholder-chocolate/30">
+              </div>
+              <div class="space-y-2">
+                <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Phone Number</label>
+                <input type="tel" name="phone" required class="w-full p-3 md:p-4 text-lg text-chocolate font-serif placeholder-chocolate/30">
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Email Address</label>
+              <input type="email" name="email" required class="w-full p-3 md:p-4 text-lg text-chocolate font-serif placeholder-chocolate/30">
+            </div>
+
+            <div class="bg-cream p-6 md:p-8 flex items-center justify-between border border-chocolate/5">
+              <div>
+                <label class="block text-[10px] uppercase tracking-[0.2em] text-chocolate/40 mb-2">Order Type</label>
+                <div class="text-lg md:text-xl text-chocolate font-display">Store Pickup Only</div>
+              </div>
+              <div class="text-right text-xs md:text-sm text-chocolate/40 italic leading-relaxed">
+                513 Albany Ave,<br>Brooklyn NY
+              </div>
+              <input type="hidden" name="type" value="Pickup">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
+              <div class="space-y-2">
+                <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Date (Dec 15-22)</label>
+                <!-- במקום input[type=date] => SELECT עם רק התאריכים המותרים -->
+                <select
+                  name="date"
+                  required
+                  class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent">
+                  <option value="">Select a date</option>
+                  <option value="2025-12-15">Monday, Dec 15</option>
+                  <option value="2025-12-16">Tuesday, Dec 16</option>
+                  <option value="2025-12-17">Wednesday, Dec 17</option>
+                  <option value="2025-12-18">Thursday, Dec 18</option>
+                  <option value="2025-12-19">Friday, Dec 19</option>
+                  <!-- 2025-12-20 (Saturday) לא מופיע בכלל -->
+                  <option value="2025-12-21">Sunday, Dec 21</option>
+                  <option value="2025-12-22">Monday, Dec 22</option>
+                </select>
+              </div>
+              <div class="space-y-2">
+                <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Pickup Time</label>
+                <select name="time" class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent appearance-none">
+                  <option>10:00 - 11:00</option>
+                  <option>11:00 - 12:00</option>
+                  <option>12:00 - 13:00</option>
+                  <option>13:00 - 14:00</option>
+                  <option>14:00 - 15:00</option>
+                  <option>15:00 - 16:00</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Notes / Requests</label>
+              <textarea name="notes" rows="2" class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent"></textarea>
+            </div>
+          </form>
+        </div>
+
+        <!-- Summary + Payment -->
+        <div class="lg:col-span-5 relative">
+          <div class="bg-[#2A221E] text-[#F9F8F6] p-8 md:p-12 sticky top-28 luxury-shadow">
+            <h3 class="font-display text-2xl md:text-3xl mb-2">Order Summary</h3>
+            <p class="text-white/30 italic mb-8 md:mb-10 font-light text-sm">Review your selection</p>
+
+            <!-- Cart -->
+            <div id="cart-items" class="space-y-4 mb-8 md:mb-10 max-h-[300px] md:max-h-[400px] overflow-y-auto pr-2 border-t border-white/10 pt-6">
+              <div class="text-center py-12 opacity-20 font-serif text-lg italic">Your box is empty.</div>
+            </div>
+
+            <!-- Totals -->
+            <div class="border-t border-white/10 pt-8 space-y-2 mb-10 md:mb-12">
+              <div class="flex justify-between text-sm text-white/60 mb-1">
+                <span>Subtotal</span>
+                <span id="subtotal-amount">$0.00</span>
+              </div>
+              <div class="flex justify-between text-sm text-white/60 mb-4">
+                <span>Tax (8.875%)</span>
+                <span id="tax-amount">$0.00</span>
+              </div>
+              <div class="flex justify-between items-end">
+                <span class="font-display text-3xl">Total</span>
+                <span id="total-price" class="font-display text-3xl md:text-4xl text-gold">$0.00</span>
+              </div>
+            </div>
+
+            <!-- Card container (ריק, לעתיד אם תרצה) -->
+            <div id="card-container" class="mb-6 p-4 bg-white/5 border border-white/10 rounded"></div>
+
+            <!-- Pay Button -->
+            <button id="btn-pay"
+                    onclick="processPayment()"
+                    disabled
+                    class="w-full bg-white text-chocolate py-4 md:py-5 px-6 text-xs uppercase tracking-[0.25em] hover:bg-gold transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 md:gap-4 group">
+              <span>Proceed to Payment</span>
+              <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+            </button>
+
+            <div class="mt-6 text-center">
+              <p class="text-[10px] text-white/20 uppercase tracking-widest">Secure Payment via Square</p>
+            </div>
+
+            <div id="error-msg" class="text-red-300 text-xs mt-4 text-center hidden font-sans tracking-wide"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer (info + contact) -->
+  <section class="bg-white py-20 px-6 border-t border-chocolate/5">
+    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-16 text-center">
+      <div class="space-y-4">
+        <div class="text-chocolate font-display text-xl md:text-2xl">Hanukkah 2025</div>
+        <div class="w-8 h-px bg-gold/50 mx-auto"></div>
+        <p class="text-chocolate/60 italic font-light">December 15th - 22nd</p>
+        <p class="text-chocolate/60 italic font-light">Open Every Day</p>
+      </div>
+      <div class="space-y-4">
+        <div class="text-chocolate font-display text-2xl">Opening Hours</div>
+        <p class="text-chocolate/70 italic">10:00 AM - 4:00 PM</p>
+        <p class="text-chocolate/50 text-sm tracking-widest uppercase">Pickup Only</p>
+      </div>
+      <div class="space-y-4">
+        <div class="text-chocolate font-display text-2xl">Visit Us</div>
+        <div class="w-8 h-px bg-gold/50 mx-auto"></div>
+        <a href="https://maps.google.com/?q=513+Albany+ave,+Brooklyn+NY+11203" target="_blank" class="block text-chocolate/60 hover:text-gold transition-colors italic underline decoration-1 decoration-chocolate/20 underline-offset-4">
+          513 Albany Ave, Brooklyn
+        </a>
+        <a href="tel:347-365-5177" class="block text-chocolate/60 hover:text-gold transition-colors font-light">
+          347-365-5177
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="bg-chocolate text-cream/40 py-10 border-t border-white/5">
+    <div class="max-w-7xl mx-auto px-6 text-center">
+      <div class="mb-8"><span class="font-display text-3xl tracking-[0.15em] text-white/90">RICOTTA</span></div>
+      <div class="flex justify-center gap-8 mb-8">
+        <a href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253" target="_blank" class="hover:text-gold text-white/60 transition-colors"><i class="fa-brands fa-instagram text-2xl"></i></a>
+      </div>
+      <p class="text-xs tracking-widest uppercase">© 2025 RICOTTA Boutique Donuts.</p>
+    </div>
+  </footer>
+
+  <!-- SCRIPT: MENU + CART + CHECKOUT -->
+  <script>
+    const TAX_RATE = 0.08875; // 8.875%
+
+    const menuData = {
+      premium: {
+        title: "Premium Collection",
+        items: [
+          { id: 1, name: "Dubai Donut", desc: "Rich pistachio cream, crunchy knafeh & crushed pistachios.", price: 10, img: "https://i.postimg.cc/0yqHh34y/1.png" },
+          { id: 2, name: "Crème Brûlée", desc: "Crackly caramel glaze filled with rich, silky cream.", price: 10, img: "https://i.postimg.cc/HkCPFKNY/4.png" },
+          { id: 3, name: "Lemon Meringue", desc: "Tangy lemon cream topped with fluffy, torched meringue.", price: 10, img: "https://i.postimg.cc/fRjgsC40/3.png" },
+          { id: 4, name: "Blueberry Cheesecake", desc: "Rich cream cheese, cheesecake crumble, and topped with real blueberry jam.", price: 10, img: "https://i.postimg.cc/pVmWdhLy/blwbryz-z-yyz.png" }
+        ]
+      },
+      classic: {
+        title: " ",
+        items: [
+          { id: 5, name: "Oreo Donut", desc: "Smooth Oreo cream, white chocolate & crunchy crumbs.", price: 8, img: "https://i.postimg.cc/RZzb28YF/5.png" },
+          { id: 6, name: "Almond Cream", desc: "Rich almond cream topped with crunchy roasted almonds.", price: 8, img: "https://i.postimg.cc/DwKYRDN1/2.png" }
+        ]
+      }
+    };
+
+    let cart = {};
+
+    function scrollToMenu() {
+      document.getElementById('menu').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function toggleCart() {
+      const modal = document.getElementById('cart-modal');
+      modal.classList.toggle('hidden');
+      if (!modal.classList.contains('hidden')) {
+        renderModalCart();
+      }
+    }
+
+    function proceedToCheckout() {
+      toggleCart();
+      document.getElementById('order').scrollIntoView({ behavior: 'smooth' });
+      setTimeout(() => {
+        const nameInput = document.querySelector('input[name="name"]');
+        if (nameInput) nameInput.focus();
+      }, 800);
+    }
+
+    function renderMenu() {
+      const container = document.getElementById('menu-grid');
+      container.innerHTML = '';
+
+      for (const [key, cat] of Object.entries(menuData)) {
+        const section = document.createElement('div');
+
+        const gridClass = cat.items.length <= 2
+          ? "flex flex-wrap justify-center gap-10 md:gap-16"
+          : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-12";
+
+        section.innerHTML = `
+          <div class="text-center mb-16 md:mb-24">
+            <h4 class="font-display text-3xl md:text-4xl text-chocolate mb-3 tracking-wide">${cat.title}</h4>
+            <div class="w-8 h-px bg-chocolate/10 mx-auto"></div>
+          </div>
+          <div class="${gridClass} px-4 w-full">
+            ${cat.items.map(i => `
+              <div class="group flex flex-col items-center text-center max-w-[300px] w-full">
+                <div class="w-64 h-64 mb-8 relative cursor-pointer transition-transform duration-500 group-hover:-translate-y-2" onclick="updateCart(${i.id}, 1)">
+                  <img src="${i.img}" class="w-full h-full object-cover rounded-full shadow-xl group-hover:shadow-2xl transition-shadow duration-500">
+                  <div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 rounded-full transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <div class="bg-white text-chocolate w-12 h-12 rounded-full flex items-center justify-center shadow-lg transform scale-0 group-hover:scale-100 transition-transform duration-300">
+                      <i class="fa-solid fa-plus text-lg"></i>
+                    </div>
+                  </div>
+                </div>
+
+                <h5 class="font-display text-2xl text-chocolate mb-2 tracking-wide">${i.name}</h5>
+                <p class="font-serif text-base text-chocolate/60 mb-4 px-2 leading-relaxed min-h-[3rem]">${i.desc}</p>
+                <p class="font-serif text-lg text-gold-dark font-bold tracking-widest mb-6">$${i.price.toFixed(2)}</p>
+                
+                <div class="flex items-center gap-6 opacity-100">
+                  <button onclick="updateCart(${i.id}, -1)" class="w-10 h-10 rounded-full border border-chocolate/10 text-chocolate hover:bg-chocolate hover:text-white transition-all flex items-center justify-center hover:border-chocolate">
+                    <i class="fa-solid fa-minus text-xs"></i>
+                  </button>
+                  <span id="qty-${i.id}" class="font-display text-2xl w-6 text-chocolate">0</span>
+                  <button onclick="updateCart(${i.id}, 1)" class="w-10 h-10 rounded-full border border-chocolate/10 text-chocolate hover:bg-chocolate hover:text-white transition-all flex items-center justify-center hover:border-chocolate">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                  </button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+        container.appendChild(section);
+      }
+    }
+
+    function findItemById(id) {
+      for (const cat of Object.values(menuData)) {
+        const item = cat.items.find(i => i.id === id);
+        if (item) return item;
+      }
+      return null;
+    }
+
+    function saveCart() {
+      try {
+        sessionStorage.setItem('ricottaCart', JSON.stringify(cart));
+      } catch (e) {
+        console.warn('Could not save cart to sessionStorage', e);
+      }
+    }
+
+    function loadCartFromSession() {
+      try {
+        const raw = sessionStorage.getItem('ricottaCart');
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          cart = parsed;
+        }
+      } catch (e) {
+        console.warn('Could not load cart from sessionStorage', e);
+      }
+    }
+
+    function updateCart(id, delta) {
+      const item = findItemById(id);
+      if (!item) return;
+
+      if (!cart[id]) {
+        cart[id] = {
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          qty: 0
+        };
+      }
+      cart[id].qty += delta;
+      if (cart[id].qty <= 0) {
+        delete cart[id];
+      }
+
+      const qtySpan = document.getElementById(`qty-${id}`);
+      if (qtySpan) {
+        qtySpan.textContent = cart[id] && cart[id].qty > 0 ? cart[id].qty : 0;
+      }
+
+      renderCart();
+      renderModalCart();
+      saveCart();
+    }
+
+    function renderCart() {
+      const container = document.getElementById("cart-items");
+      const subtotalEl = document.getElementById("subtotal-amount");
+      const taxEl = document.getElementById("tax-amount");
+      const totalEl = document.getElementById("total-price");
+      const btnPay = document.getElementById("btn-pay");
+
+      const desktopBadge = document.getElementById("desktop-cart-count");
+      const mobileBadge = document.getElementById("mobile-cart-count");
+
+      const items = Object.values(cart || {}).filter(Boolean);
+
+      const totalQty = items.reduce((sum, it) => sum + it.qty, 0);
+      if (desktopBadge && mobileBadge) {
+        if (totalQty > 0) {
+          desktopBadge.textContent = totalQty;
+          mobileBadge.textContent = totalQty;
+          desktopBadge.classList.remove('hidden');
+          mobileBadge.classList.remove('hidden');
+        } else {
+          desktopBadge.classList.add('hidden');
+          mobileBadge.classList.add('hidden');
+        }
+      }
+
+      if (!items.length) {
+        container.innerHTML = `
+          <div class="text-center py-12 opacity-20 font-serif text-lg italic">
+            Your box is empty.
+          </div>
+        `;
+        subtotalEl.textContent = "$0.00";
+        taxEl.textContent = "$0.00";
+        totalEl.textContent = "$0.00";
+        btnPay.disabled = true;
+        return;
+      }
+
+      let subtotal = 0;
+
+      container.innerHTML = `
+        <div class="space-y-4 pt-2">
+          ${items
+            .map((item) => {
+              const line = item.price * item.qty;
+              subtotal += line;
+              return `
+                <div class="flex items-center justify-between bg-white/5 border border-white/10 rounded-full px-4 py-3 md:px-6 md:py-4">
+                  <div class="flex items-center gap-3 md:gap-4">
+                    <div class="w-8 h-8 md:w-9 md:h-9 rounded-full bg-gold/25 flex items-center justify-center text-[11px] md:text-xs font-display text-cream tracking-widest">
+                      ${item.qty}
+                    </div>
+                    <span class="font-display text-sm md:text-base text-cream">
+                      ${item.name}
+                    </span>
+                  </div>
+                  <div class="font-display text-sm md:text-base text-gold">
+                    $${line.toFixed(2)}
+                  </div>
+                </div>
+              `;
+            })
+            .join("")}
+        </div>
+      `;
+
+      const taxAmount = subtotal * TAX_RATE;
+      const total = subtotal + taxAmount;
+
+      subtotalEl.textContent = `$${subtotal.toFixed(2)}`;
+      taxEl.textContent = `$${taxAmount.toFixed(2)}`;
+      totalEl.textContent = `$${total.toFixed(2)}`;
+      btnPay.disabled = false;
+    }
+
+    function renderModalCart() {
+      const container = document.getElementById('modal-cart-items');
+      const totalEl = document.getElementById('modal-total-price');
+      if (!container || !totalEl) return;
+
+      const items = Object.values(cart || {}).filter(Boolean);
+      if (!items.length) {
+        container.innerHTML = '<div class="text-center py-20 opacity-40 font-serif italic">Your cart is currently empty.</div>';
+        totalEl.textContent = '$0.00';
+        return;
+      }
+
+      let subtotal = 0;
+      container.innerHTML = items.map(item => {
+        const line = item.price * item.qty;
+        subtotal += line;
+        return `
+          <div class="flex justify-between items-center border-b border-chocolate/5 py-3 last:border-0">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
+                <img src="${findItemById(item.id)?.img || ''}" class="w-full h-full object-cover">
+              </div>
+              <div>
+                <p class="font-serif text-chocolate text-lg leading-none">${item.name}</p>
+                <p class="text-xs text-chocolate/50 mt-1">$${item.price} each</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <button onclick="updateCart(${item.id}, -1)" class="w-6 h-6 rounded-full border border-chocolate/20 text-chocolate flex items-center justify-center hover:bg-chocolate hover:text-white transition-colors text-xs">-</button>
+              <span class="font-display w-4 text-center">${item.qty}</span>
+              <button onclick="updateCart(${item.id}, 1)" class="w-6 h-6 rounded-full border border-chocolate/20 text-chocolate flex items-center justify-center hover:bg-chocolate hover:text-white transition-colors text-xs">+</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const taxAmount = subtotal * TAX_RATE;
+      const total = subtotal + taxAmount;
+      totalEl.textContent = '$' + total.toFixed(2);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      window.scrollTo(0, 0);
+      renderMenu();
+      loadCartFromSession();
+
+      Object.values(cart || {}).forEach((item) => {
+        if (!item) return;
+        const span = document.getElementById(`qty-${item.id}`);
+        if (span) span.textContent = item.qty;
+      });
+
+      renderCart();
+      renderModalCart();
+    });
+
+    window.addEventListener('load', () => {
+      window.scrollTo(0, 0);
+    });
+
+    async function processPayment() {
+      const btn = document.getElementById("btn-pay");
+      const errorEl = document.getElementById("error-msg");
+
+      errorEl.classList.add("hidden");
+      errorEl.textContent = "";
+
+      if (!cart || Object.keys(cart).length === 0) {
+        errorEl.textContent = "Your box is empty.";
+        errorEl.classList.remove("hidden");
+        return;
+      }
+
+      const form = document.getElementById("order-form");
+      const formData = new FormData(form);
+
+      const pickupDate = formData.get("date");
+      const pickupTimeLabel = (formData.get("time") || "").toString().trim();
+
+      if (!pickupDate || !pickupTimeLabel) {
+        errorEl.textContent = "Please choose pickup date and time.";
+        errorEl.classList.remove("hidden");
+        return;
+      }
+
+      const timeParts = pickupTimeLabel.split("-").map((s) => s.trim());
+      const pickupWindow = {
+        from: timeParts[0] || "",
+        to: timeParts[1] || ""
+      };
+
+      const cartItems = Object.values(cart)
+        .filter(Boolean)
+        .map((item) => ({
+          name: item.name,
+          quantity: item.qty,
+          unitAmountCents: Math.round(item.price * 100)
+        }));
+
+      const subtotalText = document.getElementById("subtotal-amount").textContent.replace('$', '');
+      const taxText = document.getElementById("tax-amount").textContent.replace('$', '');
+      const totalText = document.getElementById("total-price").textContent.replace('$', '');
+
+      const payload = {
+        cartItems,
+        currency: "USD",
+        redirectUrlBase: window.location.origin,
+        pickupDate,
+        pickupTime: pickupTimeLabel,
+        pickupWindow,
+        customerName: formData.get("name"),
+        customerPhone: formData.get("phone"),
+        customerEmail: formData.get("email"),
+        notes: formData.get("notes") || "",
+        subtotalCents: Math.round(parseFloat(subtotalText || "0") * 100),
+        taxCents: Math.round(parseFloat(taxText || "0") * 100),
+        totalCents: Math.round(parseFloat(totalText || "0") * 100)
+      };
+
+      btn.disabled = true;
+      btn.innerText = "Processing...";
+
+      try {
+        const response = await fetch("/.netlify/functions/create-checkout-link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        const text = await response.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = null;
+        }
+
+        if (!response.ok) {
+          console.error("Checkout error:", response.status, text);
+          const msg =
+            (data && (data.message || data.error)) ||
+            "There was a problem creating the payment link. Please try again in a minute.";
+          errorEl.textContent = msg;
+          errorEl.classList.remove("hidden");
+          return;
+        }
+
+        if (!data || !data.payment_link || !data.payment_link.url) {
+          console.error("Invalid response from function:", text);
+          errorEl.textContent = "Unexpected server response. Please contact the store.";
+          errorEl.classList.remove("hidden");
+          return;
+        }
+
+        window.location.href = data.payment_link.url;
+      } catch (err) {
+        console.error("Checkout error:", err);
+        errorEl.textContent = "Unexpected error during checkout. Please try again.";
+        errorEl.classList.remove("hidden");
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Proceed to Payment";
+      }
+    }
+  </script>
+
+</body>
+</html>
