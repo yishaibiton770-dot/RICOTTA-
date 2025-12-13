@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RICOTTA ADMIN</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      background: #F9F8F6;
+      font-family: "Playfair Display", serif;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center">
+
+  <!-- LOGIN SCREEN -->
+  <div id="login-screen" class="w-full max-w-sm p-8 bg-white shadow-xl border border-gray-200 rounded-lg">
+    <h1 class="text-3xl text-center mb-6 tracking-[0.2em]">ADMIN</h1>
+
+    <input id="admin-password" type="password"
+           placeholder="Enter password"
+           class="w-full p-3 border border-gray-300 rounded mb-4">
+
+    <button onclick="loginAdmin()"
+            class="w-full bg-black text-white py-3 rounded tracking-[0.2em] hover:bg-gray-800">
+      LOGIN
+    </button>
+
+    <p id="login-error" class="text-red-600 text-center mt-3 hidden">
+      Wrong Password
+    </p>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="admin-panel" class="hidden w-full p-10">
+
+    <h1 class="text-5xl mb-10 text-center tracking-[0.2em]">RICOTTA ADMIN</h1>
+
+    <!-- SUMMARY BOXES -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12" id="summary-boxes"></div>
+
+    <!-- ORDERS -->
+    <div class="bg-white p-8 rounded-lg shadow-xl border border-gray-200">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-3xl tracking-[0.1em]">Paid Orders (Square)</h2>
+        <button onclick="loadAdminData()"
+                class="px-5 py-2 bg-black text-white rounded tracking-widest hover:bg-gray-800">
+          Refresh
+        </button>
+      </div>
+
+      <div id="orders-list" class="space-y-4">
+        <div class="text-gray-500 italic">Loading…</div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+// כמה סופגניות מותר ליום – לטקסט בלבד (החישוב עצמו בשרת)
+const DAILY_LIMIT = 250;
+
+// טווח הימים של חנוכה (לסיכום היומי)
+const DAYS = [
+  "2025-12-14",
+  "2025-12-15","2025-12-16","2025-12-17","2025-12-18",
+  "2025-12-19","2025-12-21","2025-12-22" // 20 = שבת, לא מופיע
+];
+
+let ORDERS_CACHE = [];
+let DAILY_MAP = {}; // { '2025-12-18': { used, remaining } }
+
+/* ----------------------- AUTH ------------------------- */
+function loginAdmin() {
+  const pass = document.getElementById("admin-password").value.trim();
+
+  if (pass === "ricotta999") {
+    document.getElementById("login-screen").classList.add("hidden");
+    document.getElementById("admin-panel").classList.remove("hidden");
+    loadAdminData();
+  } else {
+    document.getElementById("login-error").classList.remove("hidden");
+  }
+}
+
+/* ----------------------- LOAD DATA FROM SERVER ------------------------ */
+async function loadAdminData() {
+  const ordersContainer = document.getElementById("orders-list");
+  const summaryContainer = document.getElementById("summary-boxes");
+
+  ordersContainer.innerHTML = "<div class='text-gray-500 italic'>Loading…</div>";
+  summaryContainer.innerHTML = "<div class='col-span-3 text-center text-gray-500 italic'>Loading…</div>";
+
+  try {
+    const res = await fetch("/.netlify/functions/admin-dashboard");
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.error("Bad JSON from server:", text);
+      throw new Error("Bad JSON from server: " + text);
+    }
+
+    if (!res.ok) {
+      console.error("HTTP error:", res.status, data);
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+
+    if (!data.success) {
+      console.error("Server logical error:", data);
+      throw new Error(data.error || "Server returned error");
+    }
+
+    ORDERS_CACHE = data.orders || [];
+    DAILY_MAP = data.daily || {};
+
+    renderDailySummary();
+    renderOrdersList();
+  } catch (err) {
+    console.error("Admin load error:", err);
+    const msg = err.message || "Unknown error";
+    summaryContainer.innerHTML = `
+      <div class="col-span-3 text-center text-red-600">
+        Error loading data from server: ${msg}
+      </div>
+    `;
+    ordersContainer.innerHTML = `
+      <div class="text-red-600">
+        Error loading data from server: ${msg}
+      </div>
+    `;
+  }
+}
+
+/* ----------------------- RENDER DAILY SUMMARY ------------------------ */
+function renderDailySummary() {
+  const boxContainer = document.getElementById("summary-boxes");
+  boxContainer.innerHTML = "";
+
+  DAYS.forEach((date) => {
+    const stats = DAILY_MAP[date] || {};
+    const used = stats.used || 0;
+    const remaining = typeof stats.remaining === "number"
+      ? stats.remaining
+      : Math.max(DAILY_LIMIT - used, 0);
+
+    boxContainer.innerHTML += `
+      <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200 text-center">
+        <h3 class="text-xl font-semibold mb-2">${date}</h3>
+        <p class="text-3xl font-bold">${used} / ${DAILY_LIMIT}</p>
+        <p class="text-gray-500 mt-2">${remaining} Remaining</p>
+      </div>
+    `;
+  });
+}
+
+/* ----------------------- RENDER ORDERS LIST ------------------------ */
+function renderOrdersList() {
+  const container = document.getElementById("orders-list");
+  container.innerHTML = "";
+
+  if (!ORDERS_CACHE.length) {
+    container.innerHTML = `<div class="text-gray-500 italic">No completed orders yet.</div>`;
+    return;
+  }
+
+  const sorted = [...ORDERS_CACHE].sort((a, b) =>
+    (b.created_at || "").localeCompare(a.created_at || "")
+  );
+
+  sorted.forEach((order) => {
+    const pickupDate = order.pickupDate || "N/A";
+    const pickupTime = order.pickupTime || "";
+    const donutsInOrder = order.donuts || 0;
+    const total = typeof order.total === "number"
+      ? order.total.toFixed(2)
+      : "0.00";
+
+    container.innerHTML += `
+      <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+        <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+          <div>
+            <p class="font-bold text-sm md:text-base">Order ID: ${order.id}</p>
+            <p class="text-sm text-gray-600">
+              Pickup: ${pickupDate} ${pickupTime ? "(" + pickupTime + ")" : ""}
+            </p>
+            <p class="text-sm text-gray-600">
+              Donuts: ${donutsInOrder}
+            </p>
+          </div>
+          <div class="text-right">
+            <p class="font-bold text-lg">$${total}</p>
+            <p class="text-xs text-gray-500 mt-1">
+              Created: ${order.created_at || ""}
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+}
+</script>
+
+</body>
+</html>
