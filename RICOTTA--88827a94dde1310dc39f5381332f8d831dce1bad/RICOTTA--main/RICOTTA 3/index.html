@@ -5,37 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RICOTTA | Boutique Donuts</title>
 
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/storefront.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"></noscript>
+  <script>const initialStorefront = fetch("/.netlify/functions/storefront").catch(() => null);</script>
 
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: { 
-            cream: '#F9F8F6', 
-            chocolate: '#2A221E', 
-            gold: '#BFA67A', 
-            'gold-dark': '#C0B293',
-            'input-bg': '#F4F2EE'
-          },
-          fontFamily: { 
-            serif: ['"Cormorant Garamond"', 'serif'], 
-            display: ['"Playfair Display"', 'serif'] 
-          },
-          letterSpacing: {
-            'widest-xl': '0.25em',
-          }
-        }
-      }
-    }
-  </script>
 
   <style>
     body { background-color: #F9F8F6; color: #2A221E; }
+    [hidden] { display: none !important; }
+    .storefront-icon { width: 1em; height: 1em; display: inline-block; vertical-align: -.125em; fill: currentColor; }
+    .store-address, [data-site-text] { overflow-wrap: anywhere; }
     .luxury-shadow { box-shadow: 0 20px 40px -10px rgba(63, 47, 40, 0.1); }
 
     input, select, textarea {
@@ -71,11 +53,14 @@
     }
     .animate-fade-up { 
       opacity: 0;
-      animation: fadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+      animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
-    .delay-100 { animation-delay: 0.2s; }
-    .delay-200 { animation-delay: 0.4s; }
-    .delay-300 { animation-delay: 0.6s; }
+    .delay-100 { animation-delay: 0.07s; }
+    .delay-200 { animation-delay: 0.12s; }
+    .delay-300 { animation-delay: 0.18s; }
+    @media (prefers-reduced-motion: reduce) {
+      .animate-fade-up { animation: none; opacity: 1; }
+    }
 
     .loader {
       border: 2px solid #f3f3f3; 
@@ -116,34 +101,34 @@
     <div class="max-w-7xl mx-auto px-6 lg:px-12">
       <div class="flex justify-between items-center h-20 md:h-24">
         <div class="flex flex-col items-center cursor-pointer group" onclick="window.scrollTo(0,0)">
-          <span class="font-display text-2xl md:text-3xl tracking-[0.2em] text-chocolate group-hover:text-gold transition-colors duration-500">RICOTTA</span>
-          <span class="font-serif text-[10px] text-chocolate/40 tracking-[0.4em] uppercase mt-1">Boutique Donuts</span>
+          <span class="font-display text-2xl md:text-3xl tracking-[0.2em] text-chocolate group-hover:text-gold transition-colors duration-500" data-site-text="name" dir="auto">RICOTTA</span>
+          <span class="font-serif text-[10px] text-chocolate/40 tracking-[0.4em] uppercase mt-1" data-site-text="subtitle" dir="auto">Boutique Donuts</span>
         </div>
 
         <!-- Desktop Nav -->
         <div class="hidden md:flex items-center space-x-12">
-          <a href="#menu" class="text-sm uppercase tracking-[0.15em] text-chocolate/60 hover:text-chocolate transition-colors">The Collection</a>
-          <a href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253" target="_blank" class="text-chocolate/60 hover:text-chocolate transition-colors">
-            <i class="fa-brands fa-instagram text-lg"></i>
+          <a href="#menu" class="text-sm uppercase tracking-[0.15em] text-chocolate/60 hover:text-chocolate transition-colors" data-site-text="menuTitle" dir="auto">The Collection</a>
+          <a href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253" target="_blank" rel="noopener noreferrer" data-site-instagram aria-label="Instagram" class="text-chocolate/60 hover:text-chocolate transition-colors">
+            <svg aria-hidden="true" class="storefront-icon text-lg"><use href="/storefront-icons.svg#instagram"></use></svg>
           </a>
-          <button onclick="scrollToMenu()" class="border border-chocolate/20 px-8 py-3 text-xs uppercase tracking-[0.25em] hover:bg-chocolate hover:text-white transition-all duration-500">
+          <button onclick="scrollToMenu()" class="border border-chocolate/20 px-8 py-3 text-xs uppercase tracking-[0.25em] hover:bg-chocolate hover:text-white transition-all duration-500" data-site-text="orderButton" dir="auto">
             Order Now
           </button>
           <!-- Desktop Cart Icon -->
           <div class="relative cursor-pointer" onclick="toggleCart()">
-            <i class="fa-solid fa-bag-shopping text-xl text-chocolate"></i>
+            <svg aria-hidden="true" class="storefront-icon text-xl text-chocolate"><use href="/storefront-icons.svg#bag-shopping"></use></svg>
             <span id="desktop-cart-count" class="absolute -top-2 -right-2 bg-gold text-white text-[10px] h-4 w-4 flex items-center justify-center rounded-full hidden">0</span>
           </div>
         </div>
 
         <!-- Mobile Nav -->
         <div class="md:hidden p-2 cursor-pointer flex items-center gap-4">
-          <a href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253" target="_blank" class="text-chocolate/60 hover:text-chocolate">
-            <i class="fa-brands fa-instagram text-xl"></i>
+          <a href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253" target="_blank" rel="noopener noreferrer" data-site-instagram aria-label="Instagram" class="text-chocolate/60 hover:text-chocolate">
+            <svg aria-hidden="true" class="storefront-icon text-xl"><use href="/storefront-icons.svg#instagram"></use></svg>
           </a>
           <!-- Mobile Cart Icon -->
           <div class="relative" onclick="toggleCart()">
-            <i class="fa-solid fa-bag-shopping text-xl text-chocolate"></i>
+            <svg aria-hidden="true" class="storefront-icon text-xl text-chocolate"><use href="/storefront-icons.svg#bag-shopping"></use></svg>
             <span id="mobile-cart-count" class="absolute -top-2 -right-2 bg-gold text-white text-[10px] h-4 w-4 flex items-center justify-center rounded-full hidden">0</span>
           </div>
         </div>
@@ -160,7 +145,7 @@
       <div class="p-6 border-b border-chocolate/10 flex justify-between items-center bg-[#F9F8F6]">
         <h3 class="font-display text-2xl text-chocolate tracking-wide">Your Cart</h3>
         <button onclick="toggleCart()" class="text-chocolate/50 hover:text-chocolate text-xl">
-          <i class="fa-solid fa-xmark"></i>
+          <svg aria-hidden="true" class="storefront-icon"><use href="/storefront-icons.svg#xmark"></use></svg>
         </button>
       </div>
       <div id="modal-cart-items" class="flex-1 overflow-y-auto p-6">
@@ -181,18 +166,20 @@
   <!-- Hero -->
   <section class="relative h-[75vh] md:h-[90vh] min-h-[500px] flex items-center justify-center overflow-hidden bg-cream">
     <div class="absolute inset-0 z-0">
-      <img src="https://i.postimg.cc/FR4RTRyW/21d15421-7223-4efe-9e38-6ea5a941ac0b-20251125-135133-0000.png" 
+      <img id="site-hero" fetchpriority="high" decoding="async" src="/assets/ricotta-v1/hero-1280.webp"
+           srcset="/assets/ricotta-v1/hero-960.webp 960w, /assets/ricotta-v1/hero-1280.webp 1280w"
+           sizes="(max-width: 767px) 1280px, 100vw" width="1280" height="543"
            alt="Ricotta Donuts Banner" 
            class="w-full h-full object-cover hero-img opacity-100">
       <div class="absolute inset-0 bg-white/10"></div>
     </div>
 
     <div class="relative z-10 text-center px-6 max-w-4xl mx-auto mt-12 space-y-6 md:space-y-8">
-      <h2 class="text-chocolate text-base md:text-lg italic font-light tracking-[0.2em] animate-fade-up">Boutique Donuts</h2>
-      <h1 class="text-6xl md:text-9xl text-chocolate font-display tracking-wider animate-fade-up delay-100">RICOTTA</h1>
-      <p class="text-chocolate/90 text-lg md:text-xl italic tracking-wide animate-fade-up delay-200">"A Bite from Dreams"</p>
+      <h2 class="text-chocolate text-base md:text-lg italic font-light tracking-[0.2em] animate-fade-up" data-site-text="subtitle" dir="auto">Boutique Donuts</h2>
+      <h1 class="text-6xl md:text-9xl text-chocolate font-display tracking-wider animate-fade-up delay-100" data-site-text="name" dir="auto">RICOTTA</h1>
+      <p class="text-chocolate/90 text-lg md:text-xl italic tracking-wide animate-fade-up delay-200" data-site-text="tagline" dir="auto">"A Bite from Dreams"</p>
       <div class="pt-6 md:pt-8 animate-fade-up delay-300">
-        <button onclick="scrollToMenu()" class="bg-white text-chocolate px-10 py-4 text-xs uppercase tracking-[0.3em] shadow-xl hover:bg-chocolate hover:text-white transition-all duration-500">
+        <button onclick="scrollToMenu()" class="bg-white text-chocolate px-10 py-4 text-xs uppercase tracking-[0.3em] shadow-xl hover:bg-chocolate hover:text-white transition-all duration-500" data-site-text="menuButton" dir="auto">
           View The Menu
         </button>
       </div>
@@ -204,9 +191,9 @@
     <div class="max-w-[1800px] mx-auto px-6 md:px-12">
       <div id="store-messages" class="mx-auto max-w-2xl text-center font-serif text-xl text-chocolate" aria-live="polite"></div>
       <div class="text-center mb-16 md:mb-24 animate-fade-up delay-300">
-        <h3 class="font-display text-4xl md:text-5xl text-chocolate mb-4 md:mb-6">The Collection</h3>
+        <h3 class="font-display text-4xl md:text-5xl text-chocolate mb-4 md:mb-6" data-site-text="menuTitle" dir="auto">The Collection</h3>
         <div class="w-px h-12 md:h-16 bg-gold/30 mx-auto mb-4 md:mb-6"></div>
-        <p class="text-chocolate/60 italic font-light text-base md:text-lg">Handcrafted daily. Limited donuts per day.</p>
+        <p class="text-chocolate/60 italic font-light text-base md:text-lg" data-site-text="menuIntro" dir="auto">Handcrafted daily. Limited donuts per day.</p>
       </div>
 
       <div id="menu-grid" class="space-y-24 md:space-y-32">
@@ -244,10 +231,10 @@
             <div class="bg-cream p-6 md:p-8 flex items-center justify-between border border-chocolate/5">
               <div>
                 <label class="block text-[10px] uppercase tracking-[0.2em] text-chocolate/40 mb-2">Order Type</label>
-                <div class="text-lg md:text-xl text-chocolate font-display">Store Pickup Only</div>
+                <div class="text-lg md:text-xl text-chocolate font-display" data-site-text="pickupType" dir="auto">Store Pickup Only</div>
               </div>
               <div class="text-right text-xs md:text-sm text-chocolate/40 italic leading-relaxed">
-                513 Albany Ave,<br>Brooklyn NY
+                <span data-site-text="addressStreet" dir="auto">513 Albany Ave</span><br><span data-site-text="addressLocality" dir="auto">Brooklyn NY 11203</span>
               </div>
               <input type="hidden" name="type" value="Pickup">
             </div>
@@ -307,7 +294,7 @@
                     disabled
                     class="w-full bg-white text-chocolate py-4 md:py-5 px-6 text-xs uppercase tracking-[0.25em] hover:bg-gold transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 md:gap-4 group">
               <span>Proceed to Payment</span>
-              <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+              <svg aria-hidden="true" class="storefront-icon group-hover:translate-x-1 transition-transform"><use href="/storefront-icons.svg#arrow-right"></use></svg>
             </button>
 
             <div class="mt-6 text-center">
@@ -326,38 +313,40 @@
   <section class="bg-white py-20 px-6 border-t border-chocolate/5">
     <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-16 text-center">
       <div class="space-y-4">
-        <div class="text-chocolate font-display text-xl md:text-2xl">Pickup</div>
+        <div class="text-chocolate font-display text-xl md:text-2xl" data-site-text="pickupTitle" dir="auto">Pickup</div>
         <div class="w-8 h-px bg-gold/50 mx-auto"></div>
         <p id="pickup-season" class="text-chocolate/70 italic">See available dates when ordering.</p>
       </div>
       <div class="space-y-4">
-        <div class="text-chocolate font-display text-2xl">Opening Hours</div>
+        <div class="text-chocolate font-display text-2xl" data-site-text="hoursTitle" dir="auto">Opening Hours</div>
         <ul id="public-hours" class="text-chocolate/70 italic space-y-1"></ul>
-        <p class="text-chocolate/50 text-sm tracking-widest uppercase">Pickup Only</p>
+        <p class="text-chocolate/50 text-sm tracking-widest uppercase" data-site-text="pickupNote" dir="auto">Pickup Only</p>
       </div>
       <div class="space-y-4">
-        <div class="text-chocolate font-display text-2xl">Visit Us</div>
+        <div class="text-chocolate font-display text-2xl" data-site-text="contactTitle" dir="auto">Visit Us</div>
         <div class="w-8 h-px bg-gold/50 mx-auto"></div>
-        <a href="https://maps.google.com/?q=513+Albany+ave,+Brooklyn+NY+11203" target="_blank" class="block text-chocolate/60 hover:text-gold transition-colors italic underline decoration-1 decoration-chocolate/20 underline-offset-4">
-          513 Albany Ave, Brooklyn
+        <a id="public-address" href="https://maps.google.com/?q=513+Albany+ave,+Brooklyn+NY+11203" target="_blank" rel="noopener noreferrer" dir="auto" class="block text-chocolate/60 hover:text-gold transition-colors italic underline decoration-1 decoration-chocolate/20 underline-offset-4">
+          513 Albany Ave, Brooklyn NY 11203
         </a>
-        <a href="tel:347-365-5177" class="block text-chocolate/60 hover:text-gold transition-colors font-light">
+        <a id="public-phone" href="tel:347-365-5177" dir="auto" class="block text-chocolate/60 hover:text-gold transition-colors font-light">
           347-365-5177
         </a>
+        <a id="public-email" dir="auto" class="block text-chocolate/60 hover:text-gold transition-colors font-light" hidden></a>
       </div>
     </div>
   </section>
 
   <footer class="bg-chocolate text-cream/40 py-10 border-t border-white/5">
     <div class="max-w-7xl mx-auto px-6 text-center">
-      <div class="mb-8"><span class="font-display text-3xl tracking-[0.15em] text-white/90">RICOTTA</span></div>
+      <div class="mb-8"><span class="font-display text-3xl tracking-[0.15em] text-white/90" data-site-text="name" dir="auto">RICOTTA</span></div>
       <div class="flex justify-center gap-8 mb-8">
-        <a href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253" target="_blank" class="hover:text-gold text-white/60 transition-colors"><i class="fa-brands fa-instagram text-2xl"></i></a>
+        <a href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253" target="_blank" rel="noopener noreferrer" data-site-instagram aria-label="Instagram" class="hover:text-gold text-white/60 transition-colors"><svg aria-hidden="true" class="storefront-icon text-2xl"><use href="/storefront-icons.svg#instagram"></use></svg></a>
       </div>
-      <p class="text-xs tracking-widest uppercase">© RICOTTA Boutique Donuts.</p>
+      <p class="text-xs tracking-widest uppercase">© <span id="footer-business-name">RICOTTA Boutique Donuts</span>.</p>
     </div>
   </footer>
 
+  <script src="/ricotta-media.js"></script>
   <!-- SCRIPT: MENU + CART + CHECKOUT -->
   <script>
     const TAX_RATE = 0.08875; // 8.875%
@@ -386,10 +375,50 @@
       timeSelect.disabled = !slots.length;
     }
 
-    async function loadStorefront() {
-      const response = await fetch("/.netlify/functions/storefront");
-      if (!response.ok) throw new Error("Storefront unavailable");
+    function applySite(site) {
+      if (!site) return;
+      for (const node of document.querySelectorAll("[data-site-text]")) {
+        node.textContent = site[node.dataset.siteText];
+      }
+      document.title = [site.name, site.subtitle].filter(Boolean).join(" | ");
+      document.getElementById("footer-business-name").textContent = [site.name, site.subtitle].filter(Boolean).join(" ");
+      menuData.premium.title = site.premiumTitle;
+      menuData.classic.title = site.classicTitle;
+      const address = [site.addressStreet, site.addressLocality].filter(Boolean).join(", ");
+      const addressLink = document.getElementById("public-address");
+      addressLink.textContent = address;
+      addressLink.href = site.mapsUrl || "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(address);
+      const phone = document.getElementById("public-phone");
+      phone.textContent = site.phone;
+      phone.href = "tel:" + site.phone.replace(/[^\d+]/g, "");
+      phone.hidden = !site.phone;
+      const email = document.getElementById("public-email");
+      email.textContent = site.email;
+      email.href = "mailto:" + site.email;
+      email.hidden = !site.email;
+      for (const social of document.querySelectorAll("[data-site-instagram]")) {
+        social.hidden = !site.instagram;
+        if (site.instagram) social.href = site.instagram;
+      }
+      const hero = document.getElementById("site-hero");
+      const image = ricottaMedia.hero(site.heroImage);
+      hero.alt = site.name + " banner";
+      if (hero.getAttribute("src") !== image.src) hero.src = image.src;
+      const srcset = image.srcset || "";
+      if ((hero.getAttribute("srcset") || "") !== srcset) hero.srcset = srcset;
+    }
+
+    function menuPhoto(url) {
+      const image = ricottaMedia.product(url);
+      return 'src="' + escapeHtml(image.src) + '"' +
+        (image.srcset ? ' srcset="' + escapeHtml(image.srcset) + '"' : "");
+    }
+
+    async function loadStorefront(request = fetch("/.netlify/functions/storefront")) {
+      const response = await request;
+      if (!response?.ok) throw new Error("Storefront unavailable");
       const data = await response.json();
+      applySite(data.site);
       for (const category of Object.values(menuData)) category.items = [];
       for (const product of data.products) {
         menuData[product.category].items.push({ id: product.id, name: product.name,
@@ -484,17 +513,17 @@
 
         section.innerHTML = `
           <div class="text-center mb-16 md:mb-24">
-            <h4 class="font-display text-3xl md:text-4xl text-chocolate mb-3 tracking-wide">${cat.title}</h4>
+            <h4 class="font-display text-3xl md:text-4xl text-chocolate mb-3 tracking-wide">${escapeHtml(cat.title)}</h4>
             <div class="w-8 h-px bg-chocolate/10 mx-auto"></div>
           </div>
           <div class="${gridClass} px-4 w-full">
             ${cat.items.map(i => `
               <div class="group flex flex-col items-center text-center max-w-[300px] w-full">
                 <button type="button" class="w-64 h-64 mb-8 relative cursor-pointer transition-transform duration-500 group-hover:-translate-y-2" aria-label="Add ${escapeHtml(i.name)}" onclick="updateCart(${i.id}, 1)">
-                  ${i.img ? `<img src="${escapeHtml(i.img)}" alt="" class="w-full h-full object-cover rounded-full shadow-xl group-hover:shadow-2xl transition-shadow duration-500">` : `<span class="block h-full rounded-full bg-cream"></span>`}
+                  ${i.img ? `<img ${menuPhoto(i.img)} alt="" width="256" height="256" sizes="256px" loading="lazy" decoding="async" class="w-full h-full object-cover rounded-full shadow-xl group-hover:shadow-2xl transition-shadow duration-500">` : `<span class="block h-full rounded-full bg-cream"></span>`}
                   <div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 rounded-full transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                     <div class="bg-white text-chocolate w-12 h-12 rounded-full flex items-center justify-center shadow-lg transform scale-0 group-hover:scale-100 transition-transform duration-300">
-                      <i class="fa-solid fa-plus text-lg"></i>
+                      <svg aria-hidden="true" class="storefront-icon text-lg"><use href="/storefront-icons.svg#plus"></use></svg>
                     </div>
                   </div>
                 </button>
@@ -505,11 +534,11 @@
                 
                 <div class="flex items-center gap-6 opacity-100">
                   <button aria-label="Remove one ${escapeHtml(i.name)}" onclick="updateCart(${i.id}, -1)" class="w-10 h-10 rounded-full border border-chocolate/10 text-chocolate hover:bg-chocolate hover:text-white transition-all flex items-center justify-center hover:border-chocolate">
-                    <i class="fa-solid fa-minus text-xs"></i>
+                    <svg aria-hidden="true" class="storefront-icon text-xs"><use href="/storefront-icons.svg#minus"></use></svg>
                   </button>
                   <span id="qty-${i.id}" class="font-display text-2xl w-6 text-chocolate">${cart[i.id]?.qty || 0}</span>
                   <button aria-label="Add one ${escapeHtml(i.name)}" onclick="updateCart(${i.id}, 1)" class="w-10 h-10 rounded-full border border-chocolate/10 text-chocolate hover:bg-chocolate hover:text-white transition-all flex items-center justify-center hover:border-chocolate">
-                    <i class="fa-solid fa-plus text-xs"></i>
+                    <svg aria-hidden="true" class="storefront-icon text-xs"><use href="/storefront-icons.svg#plus"></use></svg>
                   </button>
                 </div>
               </div>
@@ -671,7 +700,7 @@
           <div class="flex justify-between items-center border-b border-chocolate/5 py-3 last:border-0">
             <div class="flex items-center gap-3">
               <div class="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
-                ${findItemById(item.id)?.img ? `<img src="${escapeHtml(findItemById(item.id).img)}" alt="" class="w-full h-full object-cover">` : ""}
+                ${findItemById(item.id)?.img ? `<img src="${escapeHtml(ricottaMedia.product(findItemById(item.id).img).src)}" alt="" width="48" height="48" loading="lazy" decoding="async" class="w-full h-full object-cover">` : ""}
               </div>
               <div>
                 <p class="font-serif text-chocolate text-lg leading-none">${escapeHtml(item.name)}</p>
@@ -698,7 +727,7 @@
       document.getElementById("pickup-date").addEventListener("change", renderPickupStatus);
       const form = document.getElementById("order-form");
       form.addEventListener("submit", event => { event.preventDefault(); processPayment(); });
-      loadStorefront().catch(() => {
+      loadStorefront(initialStorefront).catch(() => {
         document.getElementById("menu-grid").textContent = "The menu is temporarily unavailable. Please reload the page.";
         document.getElementById("pickup-status").textContent = "Online ordering is temporarily unavailable.";
       });

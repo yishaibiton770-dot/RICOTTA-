@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Tailwind -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/storefront.css">
   <link
     href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap"
     rel="stylesheet"
@@ -29,7 +29,7 @@
     </p>
     <p class="text-sm text-[#2A221E]/60 mb-10 max-w-md mx-auto">
       A confirmation and receipt have been sent to your email by Square.
-      We look forward to seeing you at RICOTTA.
+      We look forward to seeing you at <span id="receipt-business-name">RICOTTA</span>.
     </p>
     <a
       href="/"
@@ -38,5 +38,13 @@
       Back to Home
     </a>
   </div>
+  <script>
+    fetch("/.netlify/functions/storefront").then(response => response.ok ? response.json() : null)
+      .then(data => {
+        if (!data?.site?.name) return;
+        document.getElementById("receipt-business-name").textContent = data.site.name;
+        document.title = "Thank You | " + data.site.name;
+      }).catch(() => {});
+  </script>
 </body>
 </html>

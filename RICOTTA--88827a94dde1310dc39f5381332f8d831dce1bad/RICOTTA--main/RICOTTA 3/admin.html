@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./admin.css">
+  <script src="./ricotta-media.js" defer></script>
   <script src="./admin.js" defer></script>
 </head>
 <body>
@@ -29,7 +30,7 @@
   <div id="admin-panel" hidden>
     <header class="topbar">
       <div class="shell topbar-inner">
-        <a class="wordmark" lang="en" dir="ltr" href="./" aria-label="Ricotta, חזרה לחנות">RICOTTA</a>
+        <a class="wordmark" id="business-wordmark" dir="auto" href="./">RICOTTA</a>
         <div class="topbar-actions">
           <a href="./" target="_blank" rel="noopener">לצפייה באתר <span aria-hidden="true">↖</span></a>
           <button type="button" class="quiet" id="logout">יציאה</button>
@@ -45,6 +46,7 @@
 
       <nav class="section-nav" aria-label="אזורי ניהול">
         <button type="button" data-panel="products" aria-pressed="true">תפריט</button>
+        <button type="button" data-panel="site" aria-pressed="false">פרטי האתר</button>
         <button type="button" data-panel="schedule" aria-pressed="false">שעות ומכסות</button>
         <button type="button" data-panel="messages" aria-pressed="false">הודעות ותזכורות</button>
         <button type="button" data-panel="orders" aria-pressed="false">הזמנות</button>
@@ -61,6 +63,29 @@
           <button id="add-product" type="button" class="secondary">+ פריט חדש</button>
         </div>
         <div id="product-list" class="stack"></div>
+      </section>
+
+      <section id="site" class="panel" aria-labelledby="site-title" hidden>
+        <div class="section-title"><div><h2 id="site-title">פרטי האתר</h2><p>השינויים מתפרסמים בחנות אחרי השמירה.</p></div></div>
+        <div class="stack">
+          <fieldset class="card fields" id="site-contact">
+            <legend>פרטי העסק ויצירת קשר</legend>
+            <div id="contact-fields" class="fields span"></div>
+            <p class="field-help span">אם שדה המפה נשאר ריק, הקישור ייפתח לפי כתובת האיסוף.</p>
+          </fieldset>
+          <fieldset class="card fields">
+            <legend>דף הבית</legend>
+            <div id="site-copy" class="fields span"></div>
+            <div class="banner-editor span">
+              <img id="site-hero-preview" class="banner-preview" alt="תצוגה מקדימה של תמונת הפתיחה" loading="lazy" decoding="async">
+              <div id="site-hero-controls" class="stack"></div>
+            </div>
+          </fieldset>
+          <fieldset class="card fields">
+            <legend>תפריט, איסוף ושעות</legend>
+            <div id="site-sections" class="fields span"></div>
+          </fieldset>
+        </div>
       </section>
 
       <section id="schedule" class="panel" aria-labelledby="schedule-title" hidden>

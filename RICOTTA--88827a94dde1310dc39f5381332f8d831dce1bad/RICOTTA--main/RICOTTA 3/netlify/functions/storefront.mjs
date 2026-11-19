@@ -5,9 +5,10 @@ export default async (request, context) => store.handle(async () => {
   if (request.method !== "GET") return store.reply({}, 405);
   const { data } = await store.readState(stateStore(context));
   const today = store.localDate(Date.now());
-  const { products, schedule, messages } = data.settings;
+  const { products, schedule, messages, site } = data.settings;
   return store.reply({
     products: products.filter(product => product.active),
+    site,
     days: store.upcomingDays(data),
     hours: schedule.hours,
     paused: schedule.paused,

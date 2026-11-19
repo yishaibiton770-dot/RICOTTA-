@@ -22,7 +22,7 @@ export default async (request, context) => store.handle(async () => {
     if (input.revision !== state.settings.revision) {
       throw new store.HttpError(409, "ההגדרות השתנו במכשיר אחר. העתיקו שינויים שטרם נשמרו וטענו את העמוד מחדש.");
     }
-    state.settings = { ...settings, revision: input.revision + 1 };
+    state.settings = { site: state.settings.site, ...settings, revision: input.revision + 1 };
     return state.settings;
   });
   return store.reply(saved);

@@ -4,7 +4,7 @@
   "description": "Ricotta Donuts Website",
   "main": "server.js",
   "scripts": {
-    "build": "node netlify-publish.cjs",
+    "build": "node netlify-publish.cjs && tailwindcss -i storefront.tailwind.css -o public/storefront.css --minify",
     "start": "node server.js"
   },
   "dependencies": {
@@ -13,5 +13,8 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
   }
 }

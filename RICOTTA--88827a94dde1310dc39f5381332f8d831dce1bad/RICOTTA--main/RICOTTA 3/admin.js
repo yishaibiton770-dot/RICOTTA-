@@ -159,6 +159,54 @@ const textarea = (field, value, label, required = "") =>
   '<label class="span">' + label + '<textarea dir="auto" data-field="' + field + '" maxlength="350" ' +
     required + '>' + quote(value) + '</textarea></label>';
 const remove = '<button class="remove" type="button" data-remove>הסרה</button>';
+const imageInput = attributes => '<input type="file" ' + attributes + ' accept="image/jpeg,image/png,image/webp">';
+
+const siteFields = {
+  "contact-fields": [
+    ["name", "שם העסק", 35, true],
+    ["subtitle", "כותרת משנה", 75],
+    ["addressStreet", "רחוב ומספר", 110, true],
+    ["addressLocality", "עיר, מדינה ומיקוד", 110],
+    ["phone", "טלפון", 32, false, "tel"],
+    ["email", "דוא״ל ציבורי (אופציונלי)", 120, false, "email"],
+    ["instagram", "קישור לאינסטגרם", 500, false, "url"],
+    ["mapsUrl", "קישור למפה (אופציונלי)", 500, false, "url"],
+  ],
+  "site-copy": [
+    ["tagline", "משפט פתיחה", 160],
+    ["orderButton", "טקסט בכפתור ההזמנה", 40, true],
+    ["menuButton", "טקסט בכפתור לצפייה בתפריט", 40, true],
+  ],
+  "site-sections": [
+    ["menuTitle", "כותרת התפריט", 75, true],
+    ["menuIntro", "תיאור התפריט", 300],
+    ["premiumTitle", "שם קטגוריית הפרימיום", 75, true],
+    ["classicTitle", "שם הקטגוריה הקלאסית", 75, true],
+    ["pickupTitle", "כותרת אזור האיסוף", 45, true],
+    ["pickupType", "כותרת האיסוף בקופה", 75, true],
+    ["pickupNote", "הערת איסוף", 160],
+    ["hoursTitle", "כותרת שעות הפעילות", 45, true],
+    ["contactTitle", "כותרת אזור יצירת הקשר", 45, true],
+  ],
+};
+
+function renderHeroPreview() {
+  $("site-hero-preview").src = ricottaMedia.hero(settings.site.heroImage).src;
+}
+
+function renderSite() {
+  const site = settings.site;
+  $("business-wordmark").textContent = site.name;
+  for (const [container, fields] of Object.entries(siteFields)) {
+    $(container).innerHTML = fields.map(([key, label, max, required, type = "text"]) =>
+      input(key, site[key], label, type, 'dir="auto" maxlength="' + max + '"' + (required ? ' required' : ''))).join("");
+  }
+  $("site-hero-controls").innerHTML =
+    '<label>העלאת תמונת פתיחה' + imageInput('id="upload-site-hero"') + '</label>' +
+    input("heroImage", site.heroImage.startsWith("https://") ? site.heroImage : "", "קישור לתמונת פתיחה", "url", 'maxlength="500" placeholder="https://…"') +
+    (site.heroImage ? '<button class="secondary" type="button" id="reset-site-hero">החזרת תמונת הפתיחה המקורית</button>' : '');
+  renderHeroPreview();
+}
 
 function updateStoreStatus() {
   const status = $("store-status");
@@ -175,13 +223,14 @@ function renderProducts() {
   setProductCount();
   $("product-list").innerHTML = settings.products.map((product, index) => {
     const image = product.image
-      ? '<img class="product-image" src="' + quote(product.image) + '" alt="" loading="lazy">'
+      ? '<img class="product-image" src="' + quote(ricottaMedia.product(product.image).src) + '" alt="" loading="lazy" decoding="async">'
       : '<div class="product-image">אין תמונה</div>';
     const imageLink = product.image.startsWith("https://") ? product.image : "";
     const options = '<option value="premium"' + selected(product.category === "premium") +
-      '>פרימיום</option><option value="classic"' + selected(product.category === "classic") + '>קלאסי</option>';
+      '>' + quote(settings.site.premiumTitle) + '</option><option value="classic"' +
+      selected(product.category === "classic") + '>' + quote(settings.site.classicTitle) + '</option>';
     return '<article class="card product" data-index="' + index + '">' +
-      '<div class="product-media">' + image + '<label>העלאת תמונה<input type="file" data-upload accept="image/jpeg,image/png,image/webp"></label>' +
+      '<div class="product-media">' + image + '<label>העלאת תמונה' + imageInput("data-upload") + '</label>' +
       (product.image ? '<button class="quiet" type="button" data-clear-image>הסרת תמונה</button>' : '') + '</div>' +
       '<div><div class="card-title"><h3 dir="auto" data-product-title>' + quote(product.name || "פריט חדש") + '</h3>' + remove + '</div>' +
       '<div class="fields">' + input("name", product.name, "שם הפריט", "text", 'dir="auto" maxlength="100" required') +
@@ -232,6 +281,7 @@ function renderReminders() {
 
 function renderSettings() {
   updateStoreStatus();
+  renderSite();
   renderProducts();
   renderSchedule();
   renderMessages();
@@ -281,21 +331,15 @@ bindList("product-list", "products", "add-product", () => {
 bindList("message-list", "messages", "add-message", () => ({ text: "", start: "", end: "", active: true }), renderMessages);
 bindList("reminder-list", "reminders", "add-reminder", () => ({ text: "", date: "", done: false }), renderReminders);
 
-$("product-list").addEventListener("change", async event => {
-  const field = event.target;
-  if (!field.hasAttribute("data-upload") || !field.files.length) return;
-  const product = settings.products[Number(field.closest("[data-index]").dataset.index)];
+async function uploadImage(field, apply) {
+  if (!field.files.length) return;
   const file = field.files[0];
   uploads++;
   setDirty(dirty);
   feedback("feedback", "מעלים תמונה…");
   try {
     const result = await request(FUNCTIONS + "product-image", { method: "POST", headers: { "Content-Type": file.type }, body: file });
-    if (settings.products.includes(product)) {
-      product.image = result.url;
-      renderProducts();
-      changeMade();
-    }
+    if (apply(result.url)) changeMade();
   } catch (error) {
     field.value = "";
     feedback("feedback", error.message, true);
@@ -303,6 +347,46 @@ $("product-list").addEventListener("change", async event => {
     uploads--;
     setDirty(dirty);
   }
+}
+
+$("product-list").addEventListener("change", event => {
+  const field = event.target;
+  if (!field.hasAttribute("data-upload")) return;
+  const product = settings.products[Number(field.closest("[data-index]").dataset.index)];
+  uploadImage(field, url => {
+    if (!settings.products.includes(product)) return false;
+    product.image = url;
+    renderProducts();
+    return true;
+  });
+});
+
+$("site").addEventListener("input", event => {
+  const { dataset, value } = event.target;
+  if (!dataset.field) return;
+  settings.site[dataset.field] = value;
+  changeMade();
+});
+
+$("site").addEventListener("change", event => {
+  const field = event.target;
+  if (field.id === "upload-site-hero") {
+    uploadImage(field, url => {
+      settings.site.heroImage = url;
+      renderSite();
+      return true;
+    });
+  } else if (field.dataset.field === "heroImage" && field.validity.valid && (!field.value || /^https:\/\//i.test(field.value))) {
+    renderHeroPreview();
+  }
+});
+
+$("site").addEventListener("click", event => {
+  if (event.target.id !== "reset-site-hero") return;
+  settings.site.heroImage = "";
+  renderSite();
+  $("upload-site-hero").focus();
+  changeMade();
 });
 
 $("schedule-settings").addEventListener("input", event => {
