@@ -6,6 +6,9 @@
 [build.environment]
   NODE_VERSION = "22"
 
+[context.deploy-preview]
+  ignore = "false"
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
