@@ -107,8 +107,8 @@ function isProduction(context) {
 
 function stateStore(context) {
   const { getStore, getDeployStore } = require("@netlify/blobs");
-  const options = { name: "ricotta-store-v1", consistency: "strong" };
-  return isProduction(context) ? getStore(options) : getDeployStore(options);
+  const options = { name: "ricotta-store-v1", region: "us-east-2", consistency: "strong" };
+  return isProduction(context) ? getStore(options) : getDeployStore({ ...options, deployID: context?.deploy?.id });
 }
 
 async function readState(store) {
@@ -196,13 +196,13 @@ function reply(data, status = 200, headers = {}) {
   return Response.json(data, { status, headers: { "Cache-Control": "no-store", ...headers } });
 }
 
-async function handle(action) {
+async function handle(action, diagnose) {
   try {
     return await action();
   } catch (error) {
     if (error instanceof HttpError) return reply({ error: error.message }, error.status);
     console.error("Ricotta function:", error.message);
-    return reply({ error: "The service is temporarily unavailable. Please try again." }, 503);
+    return reply({ error: "The service is temporarily unavailable. Please try again.", ...(diagnose && { diagnostic: diagnose(error) }) }, 503);
   }
 }
 
