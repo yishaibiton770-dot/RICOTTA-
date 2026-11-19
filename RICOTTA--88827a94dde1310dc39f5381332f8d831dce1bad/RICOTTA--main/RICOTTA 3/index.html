@@ -188,7 +188,7 @@
     </div>
 
     <div class="relative z-10 text-center px-6 max-w-4xl mx-auto mt-12 space-y-6 md:space-y-8">
-      <h2 class="text-chocolate text-base md:text-lg italic font-light tracking-[0.2em] animate-fade-up">Hanukkah 2025 Collection</h2>
+      <h2 class="text-chocolate text-base md:text-lg italic font-light tracking-[0.2em] animate-fade-up">Boutique Donuts</h2>
       <h1 class="text-6xl md:text-9xl text-chocolate font-display tracking-wider animate-fade-up delay-100">RICOTTA</h1>
       <p class="text-chocolate/90 text-lg md:text-xl italic tracking-wide animate-fade-up delay-200">"A Bite from Dreams"</p>
       <div class="pt-6 md:pt-8 animate-fade-up delay-300">
@@ -202,6 +202,7 @@
   <!-- Menu Section -->
   <section id="menu" class="py-20 md:py-32 w-full bg-white relative">
     <div class="max-w-[1800px] mx-auto px-6 md:px-12">
+      <div id="store-messages" class="mx-auto max-w-2xl text-center font-serif text-xl text-chocolate" aria-live="polite"></div>
       <div class="text-center mb-16 md:mb-24 animate-fade-up delay-300">
         <h3 class="font-display text-4xl md:text-5xl text-chocolate mb-4 md:mb-6">The Collection</h3>
         <div class="w-px h-12 md:h-16 bg-gold/30 mx-auto mb-4 md:mb-6"></div>
@@ -209,7 +210,7 @@
       </div>
 
       <div id="menu-grid" class="space-y-24 md:space-y-32">
-        <!-- Filled by JS -->
+        <p class="text-center italic text-chocolate/70" role="status">Loading the menu…</p>
       </div>
     </div>
   </section>
@@ -222,21 +223,22 @@
         <!-- Form -->
         <div class="lg:col-span-7 bg-white p-8 md:p-16 luxury-shadow">
           <h3 class="font-display text-3xl md:text-4xl text-chocolate mb-10 md:mb-12">Your Details</h3>
+          <p id="pickup-status" class="mb-5 font-serif text-lg text-chocolate/80" aria-live="polite"></p>
           <form id="order-form" class="space-y-8 md:space-y-10">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
               <div class="space-y-2">
-                <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Full Name</label>
-                <input type="text" name="name" required class="w-full p-3 md:p-4 text-lg text-chocolate font-serif placeholder-chocolate/30">
+                <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40" for="customer-name">Full Name</label>
+                <input type="text" id="customer-name" name="name" maxlength="100" autocomplete="name" required class="w-full p-3 md:p-4 text-lg text-chocolate font-serif placeholder-chocolate/30">
               </div>
               <div class="space-y-2">
-                <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Phone Number</label>
-                <input type="tel" name="phone" required class="w-full p-3 md:p-4 text-lg text-chocolate font-serif placeholder-chocolate/30">
+                <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40" for="customer-phone">Phone Number</label>
+                <input type="tel" id="customer-phone" name="phone" maxlength="32" autocomplete="tel" required class="w-full p-3 md:p-4 text-lg text-chocolate font-serif placeholder-chocolate/30">
               </div>
             </div>
 
             <div class="space-y-2">
-              <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Email Address</label>
-              <input type="email" name="email" required class="w-full p-3 md:p-4 text-lg text-chocolate font-serif placeholder-chocolate/30">
+              <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40" for="customer-email">Email Address</label>
+              <input type="email" id="customer-email" name="email" maxlength="120" autocomplete="email" required class="w-full p-3 md:p-4 text-lg text-chocolate font-serif placeholder-chocolate/30">
             </div>
 
             <div class="bg-cream p-6 md:p-8 flex items-center justify-between border border-chocolate/5">
@@ -252,43 +254,22 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
               <div class="space-y-2">
-                <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Date (Dec 14-22)</label>
-<!-- במקום input[type=date] => SELECT עם רק התאריכים המותרים -->
-<select
-  name="date"
-  required
-  class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent">
-  <option value="">Select a date</option>
-
-  <option value="2025-12-14">Sunday, Dec 14</option>
-  <option value="2025-12-15">Monday, Dec 15</option>
-  <option value="2025-12-16">Tuesday, Dec 16</option>
-  <option value="2025-12-17">Wednesday, Dec 17</option>
-  <option value="2025-12-18">Thursday, Dec 18</option>
-  <option value="2025-12-19">Friday, Dec 19</option>
-  <!-- 2025-12-20 (Saturday) לא מופיע בכלל -->
-  <option value="2025-12-21">Sunday, Dec 21</option>
-  <option value="2025-12-22">Monday, Dec 22</option>
-</select>
-<label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Date (Dec 14-22)</label>
-
+                <label for="pickup-date" class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Pickup Date</label>
+                <select id="pickup-date" name="date" required disabled class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent">
+                  <option value="">Select a date</option>
+                </select>
               </div>
               <div class="space-y-2">
-                <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Pickup Time</label>
-                <select name="time" class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent appearance-none">
-                  <option>10:00 - 11:00</option>
-                  <option>11:00 - 12:00</option>
-                  <option>12:00 - 13:00</option>
-                  <option>13:00 - 14:00</option>
-                  <option>14:00 - 15:00</option>
-                  <option>15:00 - 16:00</option>
+                <label for="pickup-time" class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Pickup Time (New York)</label>
+                <select id="pickup-time" name="time" required disabled class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent">
+                  <option value="">Select a time</option>
                 </select>
               </div>
             </div>
 
             <div class="space-y-2">
-              <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40">Notes / Requests</label>
-              <textarea name="notes" rows="2" class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent"></textarea>
+              <label class="text-[10px] uppercase tracking-[0.2em] text-chocolate/40" for="pickup-notes">Notes / Requests</label>
+              <textarea id="pickup-notes" name="notes" maxlength="300" rows="2" class="w-full p-3 md:p-4 text-lg text-chocolate font-serif bg-transparent"></textarea>
             </div>
           </form>
         </div>
@@ -320,9 +301,6 @@
               </div>
             </div>
 
-            <!-- Card container (ריק, לעתיד אם תרצה) -->
-            <div id="card-container" class="mb-6 p-4 bg-white/5 border border-white/10 rounded"></div>
-
             <!-- Pay Button -->
             <button id="btn-pay"
                     onclick="processPayment()"
@@ -336,7 +314,7 @@
               <p class="text-[10px] text-white/20 uppercase tracking-widest">Secure Payment via Square</p>
             </div>
 
-            <div id="error-msg" class="text-red-300 text-xs mt-4 text-center hidden font-sans tracking-wide"></div>
+            <div id="error-msg" role="alert" class="text-red-300 text-xs mt-4 text-center hidden font-sans tracking-wide"></div>
           </div>
         </div>
 
@@ -348,14 +326,13 @@
   <section class="bg-white py-20 px-6 border-t border-chocolate/5">
     <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-16 text-center">
       <div class="space-y-4">
-        <div class="text-chocolate font-display text-xl md:text-2xl">Hanukkah 2025</div>
+        <div class="text-chocolate font-display text-xl md:text-2xl">Pickup</div>
         <div class="w-8 h-px bg-gold/50 mx-auto"></div>
-        <p class="text-chocolate/60 italic font-light">December 15th - 22nd</p>
-        <p class="text-chocolate/60 italic font-light">Open Every Day</p>
+        <p id="pickup-season" class="text-chocolate/70 italic">See available dates when ordering.</p>
       </div>
       <div class="space-y-4">
         <div class="text-chocolate font-display text-2xl">Opening Hours</div>
-        <p class="text-chocolate/70 italic">10:00 AM - 4:00 PM</p>
+        <ul id="public-hours" class="text-chocolate/70 italic space-y-1"></ul>
         <p class="text-chocolate/50 text-sm tracking-widest uppercase">Pickup Only</p>
       </div>
       <div class="space-y-4">
@@ -377,7 +354,7 @@
       <div class="flex justify-center gap-8 mb-8">
         <a href="https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253" target="_blank" class="hover:text-gold text-white/60 transition-colors"><i class="fa-brands fa-instagram text-2xl"></i></a>
       </div>
-      <p class="text-xs tracking-widest uppercase">© 2025 RICOTTA Boutique Donuts.</p>
+      <p class="text-xs tracking-widest uppercase">© RICOTTA Boutique Donuts.</p>
     </div>
   </footer>
 
@@ -385,26 +362,88 @@
   <script>
     const TAX_RATE = 0.08875; // 8.875%
 
-    const menuData = {
-      premium: {
-        title: "Premium Collection",
-        items: [
-          { id: 1, name: "Dubai Donut", desc: "Rich pistachio cream, crunchy knafeh & crushed pistachios.", price: 10, img: "https://i.postimg.cc/0yqHh34y/1.png" },
-          { id: 2, name: "Crème Brûlée", desc: "Crackly caramel glaze filled with rich, silky cream.", price: 10, img: "https://i.postimg.cc/HkCPFKNY/4.png" },
-          { id: 3, name: "Lemon Meringue", desc: "Tangy lemon cream topped with fluffy, torched meringue.", price: 10, img: "https://i.postimg.cc/fRjgsC40/3.png" },
-          { id: 4, name: "Blueberry Cheesecake", desc: "Rich cream cheese, cheesecake crumble, and topped with real blueberry jam.", price: 10, img: "https://i.postimg.cc/pVmWdhLy/blwbryz-z-yyz.png" }
-        ]
-      },
-      classic: {
-        title: " ",
-        items: [
-          { id: 5, name: "Oreo Donut", desc: "Smooth Oreo cream, white chocolate & crunchy crumbs.", price: 8, img: "https://i.postimg.cc/RZzb28YF/5.png" },
-          { id: 6, name: "Almond Cream", desc: "Rich almond cream topped with crunchy roasted almonds.", price: 8, img: "https://i.postimg.cc/DwKYRDN1/2.png" }
-        ]
-      }
-    };
-
+    const menuData = { premium: { title: "Premium Collection", items: [] }, classic: { title: "Classic Collection", items: [] } };
+    const escapeHtml = value => String(value).replace(/[&<>"\x27]/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "\x27": "&#39;",
+    })[c]);
+    const formatDate = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" });
     let cart = {};
+    let availableDays = [];
+    let paying = false;
+
+    function dayLabel(date) {
+      return formatDate.format(new Date(date + "T12:00:00Z"));
+    }
+
+    function renderPickupStatus() {
+      const dateSelect = document.getElementById("pickup-date");
+      const timeSelect = document.getElementById("pickup-time");
+      const lastTime = timeSelect.value;
+      const slots = availableDays.find(day => day.date === dateSelect.value)?.slots || [];
+      timeSelect.replaceChildren(new Option("Select a time", ""));
+      for (const slot of slots) timeSelect.add(new Option(slot.from + " – " + slot.to, slot.from));
+      if (slots.some(slot => slot.from === lastTime)) timeSelect.value = lastTime;
+      timeSelect.disabled = !slots.length;
+    }
+
+    async function loadStorefront() {
+      const response = await fetch("/.netlify/functions/storefront");
+      if (!response.ok) throw new Error("Storefront unavailable");
+      const data = await response.json();
+      for (const category of Object.values(menuData)) category.items = [];
+      for (const product of data.products) {
+        menuData[product.category].items.push({ id: product.id, name: product.name,
+          desc: product.description, price: product.price / 100, img: product.image });
+      }
+      const messages = document.getElementById("store-messages");
+      messages.replaceChildren(...data.messages.map(text => {
+        const notice = document.createElement("p");
+        notice.className = "mb-6 py-4 px-6 bg-cream border border-gold/30 whitespace-pre-line break-words";
+        notice.dir = "auto";
+        notice.textContent = text;
+        return notice;
+      }));
+      const { start, end } = data.season;
+      const status = document.getElementById("pickup-status");
+      availableDays = data.days.filter(day => day.ordersLeft !== 0 && day.unitsLeft > 0);
+      status.textContent = data.paused ? "Online ordering is currently paused." : availableDays.length
+        ? "" : "No pickup times are currently available.";
+      if (start || end) {
+        document.getElementById("pickup-season").textContent = start && end ? dayLabel(start) + " – " + dayLabel(end)
+          : start ? "From " + dayLabel(start) : "Through " + dayLabel(end);
+      }
+      const hours = document.getElementById("public-hours");
+      hours.replaceChildren();
+      const names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      data.hours.forEach((hoursForDay, index) => {
+        const item = document.createElement("li");
+        item.textContent = names[index] + " · " + (hoursForDay.open ? hoursForDay.from + " – " + hoursForDay.to : "Closed");
+        hours.append(item);
+      });
+      const dateSelect = document.getElementById("pickup-date");
+      const lastDate = dateSelect.value;
+      dateSelect.replaceChildren(new Option("Select a date", ""));
+      for (const day of availableDays) dateSelect.add(new Option(dayLabel(day.date), day.date));
+      if (availableDays.some(day => day.date === lastDate)) dateSelect.value = lastDate;
+      dateSelect.disabled = !availableDays.length;
+      renderPickupStatus();
+      syncCart();
+      renderMenu();
+      renderCart();
+      renderModalCart();
+    }
+
+    function syncCart() {
+      const nextCart = {};
+      for (const previous of Object.values(cart)) {
+        const product = findItemById(previous?.id);
+        if (product && Number.isSafeInteger(previous.qty) && previous.qty > 0 && previous.qty <= 5000) {
+          nextCart[product.id] = { id: product.id, name: product.name, price: product.price, qty: previous.qty };
+        }
+      }
+      cart = nextCart;
+      saveCart();
+    }
 
     function scrollToMenu() {
       document.getElementById('menu').scrollIntoView({ behavior: 'smooth' });
@@ -430,8 +469,13 @@
     function renderMenu() {
       const container = document.getElementById('menu-grid');
       container.innerHTML = '';
+      if (!Object.values(menuData).some(category => category.items.length)) {
+        container.textContent = "No items are currently on the menu.";
+        container.classList.add("text-center");
+      }
 
-      for (const [key, cat] of Object.entries(menuData)) {
+      for (const cat of Object.values(menuData)) {
+        if (!cat.items.length) continue;
         const section = document.createElement('div');
 
         const gridClass = cat.items.length <= 2
@@ -446,25 +490,25 @@
           <div class="${gridClass} px-4 w-full">
             ${cat.items.map(i => `
               <div class="group flex flex-col items-center text-center max-w-[300px] w-full">
-                <div class="w-64 h-64 mb-8 relative cursor-pointer transition-transform duration-500 group-hover:-translate-y-2" onclick="updateCart(${i.id}, 1)">
-                  <img src="${i.img}" class="w-full h-full object-cover rounded-full shadow-xl group-hover:shadow-2xl transition-shadow duration-500">
+                <button type="button" class="w-64 h-64 mb-8 relative cursor-pointer transition-transform duration-500 group-hover:-translate-y-2" aria-label="Add ${escapeHtml(i.name)}" onclick="updateCart(${i.id}, 1)">
+                  ${i.img ? `<img src="${escapeHtml(i.img)}" alt="" class="w-full h-full object-cover rounded-full shadow-xl group-hover:shadow-2xl transition-shadow duration-500">` : `<span class="block h-full rounded-full bg-cream"></span>`}
                   <div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 rounded-full transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                     <div class="bg-white text-chocolate w-12 h-12 rounded-full flex items-center justify-center shadow-lg transform scale-0 group-hover:scale-100 transition-transform duration-300">
                       <i class="fa-solid fa-plus text-lg"></i>
                     </div>
                   </div>
-                </div>
+                </button>
 
-                <h5 class="font-display text-2xl text-chocolate mb-2 tracking-wide">${i.name}</h5>
-                <p class="font-serif text-base text-chocolate/60 mb-4 px-2 leading-relaxed min-h-[3rem]">${i.desc}</p>
+                <h5 class="font-display text-2xl text-chocolate mb-2 tracking-wide">${escapeHtml(i.name)}</h5>
+                <p class="font-serif text-base text-chocolate/60 mb-4 px-2 leading-relaxed min-h-[3rem]">${escapeHtml(i.desc)}</p>
                 <p class="font-serif text-lg text-gold-dark font-bold tracking-widest mb-6">$${i.price.toFixed(2)}</p>
                 
                 <div class="flex items-center gap-6 opacity-100">
-                  <button onclick="updateCart(${i.id}, -1)" class="w-10 h-10 rounded-full border border-chocolate/10 text-chocolate hover:bg-chocolate hover:text-white transition-all flex items-center justify-center hover:border-chocolate">
+                  <button aria-label="Remove one ${escapeHtml(i.name)}" onclick="updateCart(${i.id}, -1)" class="w-10 h-10 rounded-full border border-chocolate/10 text-chocolate hover:bg-chocolate hover:text-white transition-all flex items-center justify-center hover:border-chocolate">
                     <i class="fa-solid fa-minus text-xs"></i>
                   </button>
-                  <span id="qty-${i.id}" class="font-display text-2xl w-6 text-chocolate">0</span>
-                  <button onclick="updateCart(${i.id}, 1)" class="w-10 h-10 rounded-full border border-chocolate/10 text-chocolate hover:bg-chocolate hover:text-white transition-all flex items-center justify-center hover:border-chocolate">
+                  <span id="qty-${i.id}" class="font-display text-2xl w-6 text-chocolate">${cart[i.id]?.qty || 0}</span>
+                  <button aria-label="Add one ${escapeHtml(i.name)}" onclick="updateCart(${i.id}, 1)" class="w-10 h-10 rounded-full border border-chocolate/10 text-chocolate hover:bg-chocolate hover:text-white transition-all flex items-center justify-center hover:border-chocolate">
                     <i class="fa-solid fa-plus text-xs"></i>
                   </button>
                 </div>
@@ -585,7 +629,7 @@
                       ${item.qty}
                     </div>
                     <span class="font-display text-sm md:text-base text-cream">
-                      ${item.name}
+                      ${escapeHtml(item.name)}
                     </span>
                   </div>
                   <div class="font-display text-sm md:text-base text-gold">
@@ -604,7 +648,7 @@
       subtotalEl.textContent = `$${subtotal.toFixed(2)}`;
       taxEl.textContent = `$${taxAmount.toFixed(2)}`;
       totalEl.textContent = `$${total.toFixed(2)}`;
-      btnPay.disabled = false;
+      btnPay.disabled = paying || !availableDays.length;
     }
 
     function renderModalCart() {
@@ -627,10 +671,10 @@
           <div class="flex justify-between items-center border-b border-chocolate/5 py-3 last:border-0">
             <div class="flex items-center gap-3">
               <div class="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
-                <img src="${findItemById(item.id)?.img || ''}" class="w-full h-full object-cover">
+                ${findItemById(item.id)?.img ? `<img src="${escapeHtml(findItemById(item.id).img)}" alt="" class="w-full h-full object-cover">` : ""}
               </div>
               <div>
-                <p class="font-serif text-chocolate text-lg leading-none">${item.name}</p>
+                <p class="font-serif text-chocolate text-lg leading-none">${escapeHtml(item.name)}</p>
                 <p class="text-xs text-chocolate/50 mt-1">$${item.price} each</p>
               </div>
             </div>
@@ -650,17 +694,14 @@
 
     document.addEventListener("DOMContentLoaded", () => {
       window.scrollTo(0, 0);
-      renderMenu();
       loadCartFromSession();
-
-      Object.values(cart || {}).forEach((item) => {
-        if (!item) return;
-        const span = document.getElementById(`qty-${item.id}`);
-        if (span) span.textContent = item.qty;
+      document.getElementById("pickup-date").addEventListener("change", renderPickupStatus);
+      const form = document.getElementById("order-form");
+      form.addEventListener("submit", event => { event.preventDefault(); processPayment(); });
+      loadStorefront().catch(() => {
+        document.getElementById("menu-grid").textContent = "The menu is temporarily unavailable. Please reload the page.";
+        document.getElementById("pickup-status").textContent = "Online ordering is temporarily unavailable.";
       });
-
-      renderCart();
-      renderModalCart();
     });
 
     window.addEventListener('load', () => {
@@ -668,6 +709,7 @@
     });
 
     async function processPayment() {
+      if (paying || !availableDays.length) return;
       const btn = document.getElementById("btn-pay");
       const errorEl = document.getElementById("error-msg");
 
@@ -681,6 +723,7 @@
       }
 
       const form = document.getElementById("order-form");
+      if (!form.reportValidity()) return;
       const formData = new FormData(form);
 
       const pickupDate = formData.get("date");
@@ -692,45 +735,19 @@
         return;
       }
 
-      const timeParts = pickupTimeLabel.split("-").map((s) => s.trim());
-      const pickupWindow = {
-        from: timeParts[0] || "",
-        to: timeParts[1] || ""
-      };
-
-      const cartItems = Object.values(cart)
-        .filter(Boolean)
-        .map((item) => ({
-          name: item.name,
-          quantity: item.qty,
-          unitAmountCents: Math.round(item.price * 100)
-        }));
-
-      const subtotalText = document.getElementById("subtotal-amount").textContent.replace('$', '');
-      const taxText = document.getElementById("tax-amount").textContent.replace('$', '');
-      const totalText = document.getElementById("total-price").textContent.replace('$', '');
-
+      const cartItems = Object.values(cart).map(item => ({
+        id: item.id, quantity: item.qty, unitAmountCents: Math.round(item.price * 100),
+      }));
       const payload = {
-        cartItems,
-        currency: "USD",
-        redirectUrlBase: window.location.origin,
-        pickupDate,
-        pickupTime: pickupTimeLabel,
-        pickupWindow,
-        customerName: formData.get("name"),
-        customerPhone: formData.get("phone"),
-        customerEmail: formData.get("email"),
-        notes: formData.get("notes") || "",
-        subtotalCents: Math.round(parseFloat(subtotalText || "0") * 100),
-        taxCents: Math.round(parseFloat(taxText || "0") * 100),
-        totalCents: Math.round(parseFloat(totalText || "0") * 100)
+        cartItems, pickupDate, pickupTime: pickupTimeLabel,
+        customerName: formData.get("name"), customerPhone: formData.get("phone"),
+        customerEmail: formData.get("email"), notes: formData.get("notes") || "",
       };
-
+      paying = true;
       btn.disabled = true;
-      btn.innerText = "Processing...";
-
+      btn.querySelector("span").textContent = "Processing…";
       try {
-        const response = await fetch("/.netlify/functions/create-checkout-link", {
+        const response = await fetch("/api/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
@@ -745,10 +762,10 @@
         }
 
         if (!response.ok) {
-          console.error("Checkout error:", response.status, text);
           const msg =
             (data && (data.message || data.error)) ||
             "There was a problem creating the payment link. Please try again in a minute.";
+          if (response.status === 409) await loadStorefront().catch(() => {});
           errorEl.textContent = msg;
           errorEl.classList.remove("hidden");
           return;
@@ -767,8 +784,9 @@
         errorEl.textContent = "Unexpected error during checkout. Please try again.";
         errorEl.classList.remove("hidden");
       } finally {
-        btn.disabled = false;
-        btn.innerText = "Proceed to Payment";
+        paying = false;
+        btn.querySelector("span").textContent = "Proceed to Payment";
+        renderCart();
       }
     }
   </script>

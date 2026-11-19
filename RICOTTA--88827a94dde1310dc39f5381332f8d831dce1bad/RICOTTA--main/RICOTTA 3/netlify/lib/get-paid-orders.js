@@ -1,5 +1,6 @@
 // netlify/functions/get-paid-orders.js
 const https = require("https");
+const { isAdmin } = require("./admin-auth");
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
 const LOCATION_ID = process.env.SQUARE_LOCATION_ID || "L54AH5T8V5HVN";
@@ -43,6 +44,9 @@ exports.handler = async (event) => {
   if (event.httpMethod !== "GET") {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
+  if (!isAdmin(event.headers?.cookie || event.headers?.Cookie)) {
+    return { statusCode: 401, headers: { "Cache-Control": "no-store" }, body: "Unauthorized" };
+  }
 
   if (!SQUARE_ACCESS_TOKEN) {
     return { statusCode: 500, body: "Missing SQUARE_ACCESS_TOKEN" };
@@ -82,6 +86,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
+      headers: { "Cache-Control": "no-store" },
       body: JSON.stringify(result.body),
     };
   } catch (err) {
