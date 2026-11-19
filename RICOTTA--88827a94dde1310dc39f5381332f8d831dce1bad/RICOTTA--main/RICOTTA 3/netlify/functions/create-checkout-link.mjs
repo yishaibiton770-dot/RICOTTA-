@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import store from "../lib/store.js";
+import { stateStore } from "../lib/blob-store.mjs";
 import squareApi from "../lib/square.js";
 
 const RESERVATION_MS = 15 * 60 * 1000;
@@ -19,7 +20,7 @@ export default async (request, context) => store.handle(async () => {
     throw new store.HttpError(400, "Enter a valid email address and phone number.");
   }
 
-  const db = store.stateStore(context);
+  const db = stateStore(context);
   const { data } = await store.readState(db);
   const products = new Map(data.settings.products.filter(product => product.active).map(product => [product.id, product]));
   const usedIds = new Set();

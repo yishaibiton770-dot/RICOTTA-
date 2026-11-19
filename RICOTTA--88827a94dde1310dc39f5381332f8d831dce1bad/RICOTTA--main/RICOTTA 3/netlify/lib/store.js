@@ -105,12 +105,6 @@ function isProduction(context) {
   return context?.deploy?.context === "production" && context.deploy.published === true;
 }
 
-function stateStore(context) {
-  const { getStore, getDeployStore } = require("@netlify/blobs");
-  const options = { name: "ricotta-store-v1", region: "us-east-2", consistency: "strong" };
-  return isProduction(context) ? getStore(options) : getDeployStore({ ...options, deployID: context?.deploy?.id });
-}
-
 async function readState(store) {
   const entry = await store.getWithMetadata("state", { type: "json" });
   return entry || { data: { settings: structuredClone(defaults), bookings: {} }, etag: null };
@@ -211,6 +205,6 @@ async function readJSON(request) {
 }
 
 module.exports = {
-  HttpError, localDate, localParts, pickupInstant, validDate, upcomingDays, capacity, isProduction, stateStore, readState, changeState,
+  HttpError, localDate, localParts, pickupInstant, validDate, upcomingDays, capacity, isProduction, readState, changeState,
   validateSettings, text, reply, handle, readJSON,
 };

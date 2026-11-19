@@ -1,4 +1,5 @@
 import store from "../lib/store.js";
+import { stateStore } from "../lib/blob-store.mjs";
 import auth from "../lib/admin-auth.js";
 import squareApi from "../lib/square.js";
 
@@ -15,7 +16,7 @@ export default async (request, context) => store.handle(async () => {
   }
 
   const nextDate = new Date(Date.parse(to) + 86400000).toISOString().slice(0, 10);
-  const { data } = await store.readState(store.stateStore(context));
+  const { data } = await store.readState(stateStore(context));
   const { maxUnits, maxOrders } = data.settings.schedule;
   const days = store.upcomingDays(data).slice(0, 7).map(day => ({
     date: day.date, units: maxUnits - day.unitsLeft, maxUnits,

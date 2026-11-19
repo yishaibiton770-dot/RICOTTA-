@@ -1,8 +1,9 @@
 import store from "../lib/store.js";
+import { stateStore } from "../lib/blob-store.mjs";
 
 export default async (request, context) => store.handle(async () => {
   if (request.method !== "GET") return store.reply({}, 405);
-  const { data } = await store.readState(store.stateStore(context));
+  const { data } = await store.readState(stateStore(context));
   const today = store.localDate(Date.now());
   const { products, schedule, messages } = data.settings;
   return store.reply({

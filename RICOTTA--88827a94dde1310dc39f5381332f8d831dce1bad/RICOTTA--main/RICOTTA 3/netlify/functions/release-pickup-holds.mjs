@@ -1,10 +1,11 @@
 import store from "../lib/store.js";
+import { stateStore } from "../lib/blob-store.mjs";
 import squareApi from "../lib/square.js";
 
 const MINUTE = 60 * 1000;
 
 export default async (_request, context) => store.handle(async () => {
-  const db = store.stateStore(context);
+  const db = stateStore(context);
   const { data } = await store.readState(db);
   const now = Date.now();
   const oldDate = store.localDate(now - 7 * 86400000);

@@ -1,11 +1,12 @@
 import store from "../lib/store.js";
+import { stateStore } from "../lib/blob-store.mjs";
 import auth from "../lib/admin-auth.js";
 
 export default async (request, context) => store.handle(async () => {
   if (request.method !== "GET" && request.method !== "PUT") return store.reply({}, 405);
   auth.requireAdmin(request);
   if (request.method === "GET") {
-    const { data } = await store.readState(store.stateStore(context));
+    const { data } = await store.readState(stateStore(context));
     return store.reply(data.settings);
   }
   auth.requireSameOrigin(request);
@@ -17,7 +18,7 @@ export default async (request, context) => store.handle(async () => {
     if (error instanceof store.HttpError) throw new store.HttpError(400, "בדקו את השדות, הטווחים ומספר הפריטים בטופס.");
     throw error;
   }
-  const saved = await store.changeState(store.stateStore(context), state => {
+  const saved = await store.changeState(stateStore(context), state => {
     if (input.revision !== state.settings.revision) {
       throw new store.HttpError(409, "ההגדרות השתנו במכשיר אחר. העתיקו שינויים שטרם נשמרו וטענו את העמוד מחדש.");
     }

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import store from "../lib/store.js";
+import { stateStore } from "../lib/blob-store.mjs";
 import auth from "../lib/admin-auth.js";
 
 const TYPES = {
@@ -13,7 +14,7 @@ export default async (request, context) => store.handle(async () => {
   if (request.method === "GET") {
     const id = new URL(request.url).searchParams.get("id");
     if (!id || !/^[a-f0-9]{64}$/.test(id)) return store.reply({}, 404);
-    const image = await store.stateStore(context).getWithMetadata("image/" + id, { type: "arrayBuffer" });
+    const image = await stateStore(context).getWithMetadata("image/" + id, { type: "arrayBuffer" });
     if (!image || !Object.hasOwn(TYPES, image.metadata.type)) return store.reply({}, 404);
     return new Response(image.data, { headers: {
       "Content-Type": image.metadata.type,
@@ -33,7 +34,7 @@ export default async (request, context) => store.handle(async () => {
   if (bytes.byteLength > MAX_BYTES) return store.reply({ error: "גודל התמונה המרבי הוא 2MB." }, 413);
   if (!TYPES[type](Buffer.from(bytes))) return store.reply({ error: "פורמט התמונה אינו תקין." }, 415);
   const id = createHash("sha256").update(Buffer.from(bytes)).digest("hex");
-  const write = await store.stateStore(context).set("image/" + id, bytes, { metadata: { type }, onlyIfNew: true });
+  const write = await stateStore(context).set("image/" + id, bytes, { metadata: { type }, onlyIfNew: true });
   if (write.modified && !write.etag) throw new Error("The store could not verify the image upload.");
   return store.reply({ url: "/.netlify/functions/product-image?id=" + id }, 201);
 });
