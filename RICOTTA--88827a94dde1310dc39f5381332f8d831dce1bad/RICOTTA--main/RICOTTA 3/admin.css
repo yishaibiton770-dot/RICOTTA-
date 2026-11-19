@@ -101,6 +101,9 @@ legend { font-weight: 700; padding-inline: .35rem; }
 }
 .product-media { display: grid; gap: .55rem; align-content: start; }
 .product-media input[type="file"] { padding: .26rem; font-size: .72rem; cursor: pointer; width: 100%; }
+.banner-editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: center; margin-top: .35rem; }
+.banner-preview { display: block; width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 9px; background: var(--cream); }
+.field-help { color: var(--muted, #65594e); font-size: .86rem; }
 .card-title .check { min-height: auto; }
 .hours-row { display: grid; grid-template-columns: minmax(85px, 1fr) repeat(2, minmax(78px, 1fr)); align-items: end; gap: .65rem; padding-block: .55rem; }
 .hours-row + .hours-row { border-top: 1px solid var(--line); }
@@ -119,6 +122,7 @@ legend { font-weight: 700; padding-inline: .35rem; }
   .card { padding: .85rem; }
   .product { grid-template-columns: 1fr; }
   .product-media { grid-template-columns: 78px minmax(0, 1fr); align-items: center; }
+  .banner-editor { grid-template-columns: 1fr; }
   .fields { gap: .65rem; }
   .card-title { flex-wrap: wrap; }
 }

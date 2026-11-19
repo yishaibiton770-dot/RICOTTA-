@@ -14,8 +14,10 @@
   node_bundler = "esbuild"
   external_node_modules = ["@netlify/blobs"]
 
-[images]
-  remote_images = ['https://i\.postimg\.cc/(FR4RTRyW|0yqHh34y|HkCPFKNY|fRjgsC40|pVmWdhLy|RZzb28YF|DwKYRDN1)/[A-Za-z0-9.-]+\.png']
+[[headers]]
+  for = "/assets/ricotta-v1/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
 
 [[redirects]]
   from = "/admin"

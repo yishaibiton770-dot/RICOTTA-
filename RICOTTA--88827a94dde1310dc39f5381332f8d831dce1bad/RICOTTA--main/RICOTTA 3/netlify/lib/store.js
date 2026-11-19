@@ -1,5 +1,30 @@
+const defaultSite = {
+  name: "RICOTTA",
+  subtitle: "Boutique Donuts",
+  tagline: '"A Bite from Dreams"',
+  heroImage: "",
+  menuTitle: "The Collection",
+  menuIntro: "Handcrafted daily. Limited donuts per day.",
+  premiumTitle: "Premium Collection",
+  classicTitle: "Classic Collection",
+  orderButton: "Order Now",
+  menuButton: "View The Menu",
+  pickupTitle: "Pickup",
+  pickupType: "Store Pickup Only",
+  pickupNote: "Pickup Only",
+  hoursTitle: "Opening Hours",
+  contactTitle: "Visit Us",
+  addressStreet: "513 Albany Ave",
+  addressLocality: "Brooklyn NY 11203",
+  mapsUrl: "",
+  phone: "347-365-5177",
+  email: "",
+  instagram: "https://www.instagram.com/ricottacoffee?igsh=OHMzczF1NWJwa253",
+};
+
 const defaults = {
   revision: 0,
+  site: defaultSite,
   products: [
     { id: 1, name: "Dubai Donut", description: "Rich pistachio cream, crunchy knafeh & crushed pistachios.", price: 1000, image: "https://i.postimg.cc/0yqHh34y/1.png", category: "premium", active: true },
     { id: 2, name: "Crème Brûlée", description: "Crackly caramel glaze filled with rich, silky cream.", price: 1000, image: "https://i.postimg.cc/HkCPFKNY/4.png", category: "premium", active: true },
@@ -107,7 +132,9 @@ function isProduction(context) {
 
 async function readState(store) {
   const entry = await store.getWithMetadata("state", { type: "json" });
-  return entry || { data: { settings: structuredClone(defaults), bookings: {} }, etag: null };
+  if (!entry) return { data: { settings: structuredClone(defaults), bookings: {} }, etag: null };
+  entry.data.settings.site = { ...defaultSite, ...entry.data.settings.site };
+  return entry;
 }
 
 async function changeState(store, change) {
@@ -130,6 +157,53 @@ function text(value, max, required = false) {
     throw new HttpError(400, "Check the required fields and text lengths.");
   }
   return value.trim();
+}
+
+function externalLink(value) {
+  const link = text(value, 500);
+  if (!link) return "";
+  let url;
+  try { url = new URL(link); } catch { throw new HttpError(400, "Enter a valid HTTPS link."); }
+  if (url.protocol !== "https:" || url.username || url.password) throw new HttpError(400, "Enter a valid HTTPS link.");
+  return link;
+}
+
+function imageLink(value) {
+  const image = text(value, 500);
+  return /^\/\.netlify\/functions\/product-image\?id=[a-f0-9]{64}$/.test(image) ? image : externalLink(image);
+}
+
+function validateSite(input) {
+  const site = { ...defaultSite, ...input };
+  const phone = text(site.phone, 32);
+  const email = text(site.email, 120);
+  if ((phone && (!/^\+?[0-9(). -]+$/.test(phone) || phone.replace(/\D/g, "").length < 7)) ||
+      (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+    throw new HttpError(400, "Enter a valid public phone number or email address.");
+  }
+  return {
+    name: text(site.name, 35, true),
+    subtitle: text(site.subtitle, 75),
+    tagline: text(site.tagline, 160),
+    heroImage: imageLink(site.heroImage),
+    menuTitle: text(site.menuTitle, 75, true),
+    menuIntro: text(site.menuIntro, 300),
+    premiumTitle: text(site.premiumTitle, 75, true),
+    classicTitle: text(site.classicTitle, 75, true),
+    orderButton: text(site.orderButton, 40, true),
+    menuButton: text(site.menuButton, 40, true),
+    pickupTitle: text(site.pickupTitle, 45, true),
+    pickupType: text(site.pickupType, 75, true),
+    pickupNote: text(site.pickupNote, 160),
+    hoursTitle: text(site.hoursTitle, 45, true),
+    contactTitle: text(site.contactTitle, 45, true),
+    addressStreet: text(site.addressStreet, 110, true),
+    addressLocality: text(site.addressLocality, 110),
+    mapsUrl: externalLink(site.mapsUrl),
+    phone,
+    email,
+    instagram: externalLink(site.instagram),
+  };
 }
 
 function validateSettings(input) {
@@ -156,12 +230,7 @@ function validateSettings(input) {
         !Number.isSafeInteger(item.price) || item.price < 1 || item.price > 100000 ||
         !["classic", "premium"].includes(item.category) || typeof item.active !== "boolean") invalid();
     ids.add(item.id);
-    const image = text(item.image, 500);
-    if (image && !/^\/\.netlify\/functions\/product-image\?id=[a-f0-9]{64}$/.test(image)) {
-      let imageUrl;
-      try { imageUrl = new URL(image); } catch { invalid(); }
-      if (imageUrl.protocol !== "https:" || imageUrl.username || imageUrl.password) invalid();
-    }
+    const image = imageLink(item.image);
     return {
       id: item.id, name: text(item.name, 100, true), description: text(item.description, 350),
       image, price: item.price, active: item.active, category: item.category,
@@ -180,6 +249,7 @@ function validateSettings(input) {
   });
   return {
     products: cleanProducts,
+    ...(input.site !== undefined && { site: validateSite(input.site) }),
     schedule: { paused: schedule.paused, start: schedule.start, end: schedule.end,
       maxUnits: schedule.maxUnits, maxOrders: schedule.maxOrders, hours: cleanHours },
     messages: cleanMessages, reminders: cleanReminders,
