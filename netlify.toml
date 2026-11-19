@@ -1,0 +1,20 @@
+[build]
+  base = "RICOTTA--88827a94dde1310dc39f5381332f8d831dce1bad/RICOTTA--main/RICOTTA 3"
+  command = "npm run build"
+  publish = "public"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[context.deploy-preview]
+  ignore = "false"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  external_node_modules = ["@netlify/blobs"]
+
+[[redirects]]
+  from = "/admin"
+  to = "/admin.html"
+  status = 200

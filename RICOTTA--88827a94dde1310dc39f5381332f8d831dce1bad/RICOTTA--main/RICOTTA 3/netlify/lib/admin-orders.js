@@ -1,5 +1,6 @@
 // netlify/functions/admin-orders.js
 const https = require("https");
+const { isAdmin } = require("./admin-auth");
 
 const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
 const SQUARE_LOCATION_ID =
@@ -56,7 +57,10 @@ function callSquare(path, method, bodyObj) {
   });
 }
 
-exports.handler = async () => {
+exports.handler = async event => {
+  if (event.httpMethod !== "GET" || !isAdmin(event.headers?.cookie || event.headers?.Cookie)) {
+    return { statusCode: 401, headers: { "Cache-Control": "no-store" }, body: "Unauthorized" };
+  }
   if (!SQUARE_ACCESS_TOKEN) {
     return {
       statusCode: 500,
@@ -161,6 +165,7 @@ exports.handler = async () => {
 
     return {
       statusCode: 200,
+      headers: { "Cache-Control": "no-store" },
       body: JSON.stringify({
         days,
         orders: cleanedOrders.sort((a, b) =>
